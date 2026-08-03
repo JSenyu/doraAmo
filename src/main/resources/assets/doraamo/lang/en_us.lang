@@ -1,0 +1,74 @@
+tile.doraamo.portal_door.name=Anywhere Door
+item.doraamo.portal_door.name=Anywhere Door
+item.doraamo.portal_tuner.name=Coordinator
+tile.doraamo.obsidian_turf.name=Obsidian Turf
+item.doraamo.obsidian_turf.name=Obsidian Turf
+
+advancements.doraamo.magic_power.title=Mysterious Power
+advancements.doraamo.magic_power.desc=Obtain a dragon head
+advancements.doraamo.anydoor.title=Anywhere Door?
+advancements.doraamo.anydoor.desc=Craft an Anywhere Door
+advancements.doraamo.true_anydoor.title=A True Anywhere Door!
+advancements.doraamo.true_anydoor.desc=Craft a Coordinator
+
+doraamo.dimension.blank=Blank
+doraamo.dimension.unknown=Dimension %s
+doraamo.dimension.0=Overworld
+doraamo.dimension.-1=Nether
+doraamo.dimension.1=The End
+
+doraamo.mode.scaled=Scaled
+doraamo.mode.coords=Coordinates
+doraamo.mode.biome=Biome
+doraamo.mode.structure=Structure
+
+doraamo.portal.dest.scaled=%s (scaled)
+doraamo.portal.msg.no_safe_landing=No safe landing nearby
+doraamo.portal.msg.target_blocked=Cannot place here
+
+doraamo.tuner.msg.sub_locked=Sub-doors cannot change destination
+doraamo.tuner.msg.applied=Destination saved
+doraamo.tuner.msg.overwrite=Binding overwritten; sub-door will rebuild
+doraamo.tuner.msg.no_nearby=No Anywhere Door nearby
+doraamo.tuner.msg.nearest=Nearest %s: %s, about %s blocks
+doraamo.tuner.type.main=main door
+doraamo.tuner.type.sub=sub-door
+doraamo.tuner.dir.n=north
+doraamo.tuner.dir.ne=northeast
+doraamo.tuner.dir.e=east
+doraamo.tuner.dir.se=southeast
+doraamo.tuner.dir.s=south
+doraamo.tuner.dir.sw=southwest
+doraamo.tuner.dir.w=west
+doraamo.tuner.dir.nw=northwest
+doraamo.tuner.dir.up=above
+doraamo.tuner.dir.down=below
+
+doraamo.gui.tuner.title=Coordinator
+doraamo.gui.tuner.status=%s · %s
+doraamo.gui.tuner.save=Save
+doraamo.gui.tuner.force_save=Confirm Save
+doraamo.gui.tuner.explore=Explore
+doraamo.gui.tuner.filter_hint=Filter…
+doraamo.gui.tuner.dim_list=Dimensions
+doraamo.gui.tuner.status.need_search=Explore a target first
+doraamo.gui.tuner.status.searching=Exploring…
+doraamo.gui.tuner.status.found_safe=Landing: %s, %s, %s
+doraamo.gui.tuner.status.found_unsafe=Unsafe landing: %s, %s, %s (%s)
+doraamo.gui.tuner.status.not_found=Not found
+doraamo.gui.tuner.status.save_blocked=%s. Confirm save available
+doraamo.gui.tuner.bound.none=No destination bound
+doraamo.gui.tuner.bound.current=Bound: %s
+doraamo.gui.tuner.bound.overwrite_hint=Saving overwrites the binding and rebuilds the sub-door
+doraamo.gui.tuner.bound.coords=%s · %s · %s %s %s
+doraamo.gui.tuner.bound.biome=%s · %s · %s
+doraamo.gui.tuner.bound.structure=%s · %s · %s
+doraamo.gui.tuner.hazard.none=safe
+doraamo.gui.tuner.hazard.floating=floating
+doraamo.gui.tuner.hazard.wall=no space
+doraamo.gui.tuner.hazard.flooded=flooded
+doraamo.gui.tuner.hazard.lava=lava
+doraamo.gui.tuner.hazard.fire=hazardous floor
+doraamo.gui.tuner.hazard.bounds=out of height range
+
+doraamo.biome.unknown=Unknown

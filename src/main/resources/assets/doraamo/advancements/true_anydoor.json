@@ -1,0 +1,26 @@
+{
+  "display": {
+    "icon": {
+      "item": "doraamo:portal_tuner"
+    },
+    "title": {
+      "translate": "advancements.doraamo.true_anydoor.title"
+    },
+    "description": {
+      "translate": "advancements.doraamo.true_anydoor.desc"
+    },
+    "frame": "goal",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "parent": "doraamo:anydoor",
+  "criteria": {
+    "crafted": {
+      "trigger": "minecraft:impossible"
+    }
+  },
+  "requirements": [
+    ["crafted"]
+  ]
+}

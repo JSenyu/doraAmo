@@ -1,0 +1,120 @@
+buildscript {
+    repositories {
+        maven { url = 'https://maven.minecraftforge.net/' }
+        mavenCentral()
+    }
+    dependencies {
+        classpath 'net.minecraftforge.gradle:ForgeGradle:3.+'
+    }
+}
+
+apply plugin: 'net.minecraftforge.gradle'
+// Only edit below this line, the above code adds and enables the necessary things for Forge to be setup.
+apply plugin: 'eclipse'
+apply plugin: 'maven-publish'
+
+version = '1.0.0'
+group = 'com.doraamo'
+archivesBaseName = 'doraamo'
+
+sourceCompatibility = targetCompatibility = compileJava.sourceCompatibility = compileJava.targetCompatibility = '1.8'
+
+compileJava {
+    options.encoding = 'UTF-8'
+}
+
+// FG3 + 1.12.2: FMLFileResourcePack reads assets from the classes dir, not build/resources
+sourceSets {
+    main {
+        output.resourcesDir = file("${buildDir}/classes/java/main")
+    }
+}
+
+minecraft {
+    mappings channel: 'snapshot', version: '20171003-1.12'
+
+    runs {
+        client {
+            workingDirectory project.file('run')
+            property 'forge.logging.markers', 'SCAN,REGISTRIES,REGISTRYDUMP'
+            property 'forge.logging.console.level', 'info'
+            mods {
+                doraamo {
+                    source sourceSets.main
+                }
+            }
+        }
+
+        server {
+            workingDirectory project.file('run')
+            property 'forge.logging.markers', 'SCAN,REGISTRIES,REGISTRYDUMP'
+            property 'forge.logging.console.level', 'info'
+            mods {
+                doraamo {
+                    source sourceSets.main
+                }
+            }
+        }
+    }
+}
+
+dependencies {
+    // Prefer mergetool without Side.BUKKIT when jars are regenerated
+    implementation('net.minecraftforge:mergetool:0.2.3.3:forge') { force = true }
+
+    minecraft 'net.minecraftforge:forge:1.12.2-14.23.5.2860'
+}
+
+// Patch Side enum in mapped Forge jar if BUKKIT was injected (FG3 / 1.12.2 known issue)
+task patchForgeSide {
+    doLast {
+        def mappedDir = new File("${System.getProperty('user.home')}/.gradle/caches/forge_gradle/minecraft_user_repo/net/minecraftforge/forge/1.12.2-14.23.5.2860_mapped_snapshot_20171003-1.12")
+        def jars = mappedDir.exists() ? mappedDir.listFiles().findAll { it.name.endsWith('.jar') && !it.name.contains('sources') } : []
+        def sideClass = file('side_patch/out/net/minecraftforge/fml/relauncher/Side.class')
+        if (!sideClass.exists() || jars.isEmpty()) {
+            logger.warn('Skipping Side patch: patch class or forge jar missing')
+            return
+        }
+        jars.each { jarFile ->
+            ant.jar(destfile: jarFile, update: true) {
+                fileset(dir: 'side_patch/out') {
+                    include(name: 'net/minecraftforge/fml/relauncher/Side.class')
+                }
+            }
+            logger.lifecycle("Patched Side enum in ${jarFile.name}")
+        }
+    }
+}
+
+tasks.matching { it.name == 'runClient' || it.name == 'runServer' }.all {
+    dependsOn patchForgeSide
+}
+
+jar {
+    manifest {
+        attributes([
+            "Specification-Title": "doraamo",
+            "Specification-Vendor": "doraamo",
+            "Specification-Version": "1",
+            "Implementation-Title": project.name,
+            "Implementation-Version": "${version}",
+            "Implementation-Vendor": "doraamo",
+            "Implementation-Timestamp": new Date().format("yyyy-MM-dd'T'HH:mm:ssZ")
+        ])
+    }
+}
+
+jar.finalizedBy('reobfJar')
+
+publishing {
+    publications {
+        mavenJava(MavenPublication) {
+            artifact jar
+        }
+    }
+    repositories {
+        maven {
+            url "file:///${project.projectDir}/mcmodsrepo"
+        }
+    }
+}

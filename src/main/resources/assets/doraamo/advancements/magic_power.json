@@ -1,0 +1,40 @@
+{
+  "display": {
+    "icon": {
+      "item": "minecraft:skull",
+      "data": 5
+    },
+    "title": {
+      "translate": "advancements.doraamo.magic_power.title"
+    },
+    "description": {
+      "translate": "advancements.doraamo.magic_power.desc"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "parent": "minecraft:end/find_end_city",
+  "criteria": {
+    "has_dragon_head": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "item": "minecraft:skull",
+            "data": 5
+          }
+        ]
+      }
+    }
+  },
+  "requirements": [
+    ["has_dragon_head"]
+  ],
+  "rewards": {
+    "recipes": [
+      "doraamo:portal_door"
+    ]
+  }
+}
