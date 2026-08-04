@@ -5,17 +5,18 @@ import com.doraamo.block.BlockPortalDoor;
 import com.doraamo.block.ModBlocks;
 import com.doraamo.tileentity.TileEntityPortalDoor;
 import com.doraamo.util.DimUtil;
-import net.minecraft.block.BlockState;
-import net.minecraft.nbt.CompoundNBT;
-import net.minecraft.nbt.ListNBT;
-import net.minecraft.nbt.StringNBT;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.level.ChunkPos;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.StringTag;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.ChunkPos;
-import net.minecraft.world.World;
-import net.minecraft.world.server.ServerWorld;
-import net.minecraft.world.storage.WorldSavedData;
-import net.minecraftforge.fml.server.ServerLifecycleHooks;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.saveddata.SavedData;
+import net.minecraftforge.server.ServerLifecycleHooks;
 
 import java.util.Collections;
 import java.util.HashMap;
@@ -23,7 +24,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
-public class PortalNetworkData extends WorldSavedData {
+public class PortalNetworkData extends SavedData {
 
     public static final String DATA_NAME = DoraAmo.MODID + "_portals";
 
@@ -32,22 +33,22 @@ public class PortalNetworkData extends WorldSavedData {
     private final Set<String> pendingBreak = new HashSet<>();
 
     public PortalNetworkData() {
-        super(DATA_NAME);
+    }
+
+    public static PortalNetworkData load(CompoundTag nbt) {
+        PortalNetworkData data = new PortalNetworkData();
+        data.readFromNbt(nbt);
+        return data;
     }
 
     public static PortalNetworkData get(MinecraftServer server) {
-        ServerWorld overworld = server.overworld();
-        return overworld.getDataStorage().computeIfAbsent(PortalNetworkData::new, DATA_NAME);
+        ServerLevel overworld = server.overworld();
+        return overworld.getDataStorage().computeIfAbsent(PortalNetworkData::load, PortalNetworkData::new, DATA_NAME);
     }
 
     public static PortalNetworkData get() {
         MinecraftServer server = ServerLifecycleHooks.getCurrentServer();
         return server == null ? null : get(server);
-    }
-
-    @Override
-    public void load(CompoundNBT nbt) {
-        readFromNbt(nbt);
     }
 
     public void registerSub(PortalRef main, PortalRef sub) {
@@ -78,7 +79,7 @@ public class PortalNetworkData extends WorldSavedData {
         setDirty();
     }
 
-    public boolean isValidSubDoor(ServerWorld world, PortalRef sub, PortalRef expectedMain) {
+    public boolean isValidSubDoor(ServerLevel world, PortalRef sub, PortalRef expectedMain) {
         if (!world.isLoaded(sub.pos)) {
             world.getChunk(sub.pos);
         }
@@ -92,11 +93,10 @@ public class PortalNetworkData extends WorldSavedData {
         if (state.getValue(BlockPortalDoor.HALF) != BlockPortalDoor.Half.LOWER) {
             return false;
         }
-        net.minecraft.tileentity.TileEntity te = world.getBlockEntity(sub.pos);
-        if (!(te instanceof TileEntityPortalDoor)) {
+        BlockEntity te = world.getBlockEntity(sub.pos);
+        if (!(te instanceof TileEntityPortalDoor portal)) {
             return false;
         }
-        TileEntityPortalDoor portal = (TileEntityPortalDoor) te;
         return portal.isSubGate() && expectedMain.equals(portal.getMainRef());
     }
 
@@ -146,7 +146,7 @@ public class PortalNetworkData extends WorldSavedData {
     }
 
     public void tryBreakNow(PortalRef sub, MinecraftServer server) {
-        ServerWorld world = DimUtil.getLevel(server, sub.dim);
+        ServerLevel world = DimUtil.getLevel(server, sub.dim);
         if (world == null || !world.isLoaded(sub.pos)) {
             return;
         }
@@ -155,8 +155,8 @@ public class PortalNetworkData extends WorldSavedData {
         setDirty();
     }
 
-    public void onChunkLoad(World world, ChunkPos chunk) {
-        if (world.isClientSide || pendingBreak.isEmpty()) {
+    public void onChunkLoad(Level world, ChunkPos chunk) {
+        if (world.isClientSide() || pendingBreak.isEmpty()) {
             return;
         }
         String worldDim = DimUtil.levelKey(world);
@@ -182,7 +182,7 @@ public class PortalNetworkData extends WorldSavedData {
         }
     }
 
-    public static void breakSubDoor(World world, BlockPos lower) {
+    public static void breakSubDoor(Level world, BlockPos lower) {
         BlockState state = world.getBlockState(lower);
         boolean wasSuppress = BlockPortalDoor.suppressSubRepair;
         BlockPortalDoor.suppressSubRepair = true;
@@ -202,17 +202,17 @@ public class PortalNetworkData extends WorldSavedData {
         }
     }
 
-    public void readFromNbt(CompoundNBT nbt) {
+    public void readFromNbt(CompoundTag nbt) {
         mainToSubs.clear();
         subToMain.clear();
         pendingBreak.clear();
 
-        ListNBT mains = nbt.getList("Mains", 10);
+        ListTag mains = nbt.getList("Mains", CompoundTag.TAG_COMPOUND);
         for (int i = 0; i < mains.size(); i++) {
-            CompoundNBT tag = mains.getCompound(i);
+            CompoundTag tag = mains.getCompound(i);
             String mk = tag.getString("Main");
             Set<String> set = new HashSet<>();
-            ListNBT subs = tag.getList("Subs", 8);
+            ListTag subs = tag.getList("Subs", StringTag.TAG_STRING);
             for (int j = 0; j < subs.size(); j++) {
                 String sk = subs.getString(j);
                 set.add(sk);
@@ -223,30 +223,30 @@ public class PortalNetworkData extends WorldSavedData {
             }
         }
 
-        ListNBT pending = nbt.getList("PendingBreak", 8);
+        ListTag pending = nbt.getList("PendingBreak", StringTag.TAG_STRING);
         for (int i = 0; i < pending.size(); i++) {
             pendingBreak.add(pending.getString(i));
         }
     }
 
     @Override
-    public CompoundNBT save(CompoundNBT compound) {
-        ListNBT mains = new ListNBT();
+    public CompoundTag save(CompoundTag compound) {
+        ListTag mains = new ListTag();
         for (Map.Entry<String, Set<String>> e : mainToSubs.entrySet()) {
-            CompoundNBT tag = new CompoundNBT();
+            CompoundTag tag = new CompoundTag();
             tag.putString("Main", e.getKey());
-            ListNBT subs = new ListNBT();
+            ListTag subs = new ListTag();
             for (String sk : e.getValue()) {
-                subs.add(StringNBT.valueOf(sk));
+                subs.add(StringTag.valueOf(sk));
             }
             tag.put("Subs", subs);
             mains.add(tag);
         }
         compound.put("Mains", mains);
 
-        ListNBT pending = new ListNBT();
+        ListTag pending = new ListTag();
         for (String sk : pendingBreak) {
-            pending.add(StringNBT.valueOf(sk));
+            pending.add(StringTag.valueOf(sk));
         }
         compound.put("PendingBreak", pending);
         return compound;

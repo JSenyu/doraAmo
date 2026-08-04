@@ -9,16 +9,17 @@ import com.doraamo.tileentity.TileEntityPortalDoor;
 import com.doraamo.util.DimUtil;
 import com.doraamo.util.LangKeys;
 import net.minecraft.client.Minecraft;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.nbt.CompoundNBT;
-import net.minecraft.util.ActionResult;
-import net.minecraft.util.ActionResultType;
-import net.minecraft.util.Hand;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.text.TranslationTextComponent;
-import net.minecraft.world.World;
+import net.minecraft.core.BlockPos;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.InteractionResultHolder;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.context.UseOnContext;
+import net.minecraft.world.level.Level;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.fml.DistExecutor;
 
@@ -29,10 +30,7 @@ public class ItemPortalTuner extends Item {
     }
 
     public static DestinationSettings getSettings(ItemStack stack) {
-        if (!stack.hasTag()) {
-            return new DestinationSettings();
-        }
-        CompoundNBT tag = stack.getTag();
+        CompoundTag tag = stack.getTag();
         if (tag != null && tag.contains("Dest")) {
             return DestinationSettings.fromNBT(tag.getCompound("Dest"));
         }
@@ -40,8 +38,8 @@ public class ItemPortalTuner extends Item {
     }
 
     public static void setSettings(ItemStack stack, DestinationSettings settings) {
-        CompoundNBT tag = stack.getOrCreateTag();
-        tag.put("Dest", settings.writeToNBT(new CompoundNBT()));
+        CompoundTag tag = stack.getOrCreateTag();
+        tag.put("Dest", settings.writeToNBT(new CompoundTag()));
     }
 
     @Override
@@ -50,27 +48,27 @@ public class ItemPortalTuner extends Item {
     }
 
     @Override
-    public ActionResultType useOn(net.minecraft.item.ItemUseContext context) {
-        World world = context.getLevel();
+    public InteractionResult useOn(UseOnContext context) {
+        Level world = context.getLevel();
         BlockPos pos = context.getClickedPos();
         if (world.getBlockState(pos).getBlock() != ModBlocks.PORTAL_DOOR.get()) {
-            return ActionResultType.PASS;
+            return InteractionResult.PASS;
         }
         ItemStack stack = context.getItemInHand();
-        PlayerEntity player = context.getPlayer();
+        Player player = context.getPlayer();
         if (player == null) {
-            return ActionResultType.PASS;
+            return InteractionResult.PASS;
         }
-        Hand hand = context.getHand();
+        InteractionHand hand = context.getHand();
         TileEntityPortalDoor te = BlockPortalDoor.getTile(world, pos, world.getBlockState(pos));
         if (te == null) {
-            return ActionResultType.FAIL;
+            return InteractionResult.FAIL;
         }
         if (te.isSubGate() || BlockPortalDoor.isSub(world.getBlockState(pos))) {
             if (!world.isClientSide) {
-                player.displayClientMessage(new TranslationTextComponent(LangKeys.TUNER_SUB_LOCKED), true);
+                player.displayClientMessage(Component.translatable(LangKeys.TUNER_SUB_LOCKED), true);
             }
-            return ActionResultType.FAIL;
+            return InteractionResult.FAIL;
         }
         if (world.isClientSide) {
             BlockPos base = te.getBlockPos();
@@ -81,35 +79,35 @@ public class ItemPortalTuner extends Item {
                 draft.x = (int) Math.floor(player.getX());
                 draft.y = (int) Math.floor(player.getY());
                 draft.z = (int) Math.floor(player.getZ());
-                draft.dimension = player.level.dimension().location().toString();
+                draft.dimension = player.level().dimension().location().toString();
             }
             openGui(hand, stack, base, draft, bound != null);
         }
-        return ActionResultType.SUCCESS;
+        return InteractionResult.SUCCESS;
     }
 
-    private static void openGui(Hand hand, ItemStack stack, BlockPos portalPos,
+    private static void openGui(InteractionHand hand, ItemStack stack, BlockPos portalPos,
                                 DestinationSettings draft, boolean hasExistingBinding) {
         DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> () ->
                 Minecraft.getInstance().setScreen(new GuiPortalTuner(hand, draft, portalPos, hasExistingBinding)));
     }
 
     @Override
-    public ActionResult<ItemStack> use(World world, PlayerEntity player, Hand hand) {
+    public InteractionResultHolder<ItemStack> use(Level world, Player player, InteractionHand hand) {
         ItemStack stack = player.getItemInHand(hand);
         if (!world.isClientSide) {
             PortalFinder.NearestPortal nearest = PortalFinder.findNearest(world, player);
             if (nearest == null) {
-                player.displayClientMessage(new TranslationTextComponent(LangKeys.TUNER_NO_NEARBY), true);
+                player.displayClientMessage(Component.translatable(LangKeys.TUNER_NO_NEARBY), true);
             } else {
                 String dirKey = PortalFinder.directionKey(player, nearest.pos);
                 String typeKey = nearest.subGate ? LangKeys.TUNER_TYPE_SUB : LangKeys.TUNER_TYPE_MAIN;
-                player.displayClientMessage(new TranslationTextComponent(LangKeys.TUNER_NEAREST,
-                        new TranslationTextComponent(typeKey),
-                        new TranslationTextComponent(dirKey),
+                player.displayClientMessage(Component.translatable(LangKeys.TUNER_NEAREST,
+                        Component.translatable(typeKey),
+                        Component.translatable(dirKey),
                         (int) Math.round(nearest.distance)), true);
             }
         }
-        return ActionResult.success(stack);
+        return InteractionResultHolder.success(stack);
     }
 }

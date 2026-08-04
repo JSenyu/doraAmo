@@ -2,18 +2,21 @@ package com.doraamo.destination;
 
 import com.doraamo.portal.ChunkPrep;
 import com.doraamo.util.DimUtil;
-import net.minecraft.block.Block;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.Blocks;
-import net.minecraft.util.Direction;
-import net.minecraft.util.ResourceLocation;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.world.biome.Biome;
-import net.minecraft.world.gen.feature.structure.Structure;
-import net.minecraft.world.gen.feature.structure.StructureStart;
-import net.minecraft.world.server.ServerWorld;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Holder;
+import net.minecraft.core.HolderSet;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.util.Mth;
+import net.minecraft.world.level.biome.Biome;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.levelgen.structure.Structure;
 import net.minecraftforge.registries.ForgeRegistries;
+import net.minecraft.world.level.levelgen.Heightmap;
 
 import javax.annotation.Nullable;
 import java.util.ArrayList;
@@ -21,7 +24,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Random;
+import java.util.Optional;
 import java.util.Set;
 
 public final class DestinationLocator {
@@ -88,7 +91,7 @@ public final class DestinationLocator {
         return WATER_OR_FLOAT.contains(name);
     }
 
-    public static BlockPos resolve(ServerWorld world, BlockPos scaledPortalPos, DestinationSettings settings) {
+    public static BlockPos resolve(ServerLevel world, BlockPos scaledPortalPos, DestinationSettings settings) {
         if (settings == null) {
             return scaledPortalPos;
         }
@@ -109,7 +112,7 @@ public final class DestinationLocator {
         }
     }
 
-    public static ValidateResult validate(ServerWorld world, BlockPos near, DestinationSettings settings) {
+    public static ValidateResult validate(ServerLevel world, BlockPos near, DestinationSettings settings) {
         if (settings == null || world == null) {
             return ValidateResult.fail();
         }
@@ -137,27 +140,37 @@ public final class DestinationLocator {
     }
 
     @Nullable
-    private static BlockPos findBiomeStrict(ServerWorld world, BlockPos near, String biomeKey) {
-        ResourceLocation key = new ResourceLocation(biomeKey.contains(":") ? biomeKey : "minecraft:" + biomeKey);
-        Biome target = ForgeRegistries.BIOMES.getValue(key);
-        if (target == null) {
-            target = ForgeRegistries.BIOMES.getValue(new ResourceLocation("minecraft:plains"));
+    private static BlockPos findBiomeStrict(ServerLevel world, BlockPos near, String biomeKey) {
+        ResourceLocation key = ResourceLocation.tryParse(biomeKey.contains(":") ? biomeKey : "minecraft:" + biomeKey);
+        if (key == null) {
+            key = new ResourceLocation("minecraft", "plains");
         }
-        final Biome biomeTarget = target;
-        BlockPos found = world.findNearestBiome(biomeTarget, near, 640, 8);
+        ResourceKey<Biome> biomeKeyObj = ResourceKey.create(Registries.BIOME, key);
+        Optional<Holder.Reference<Biome>> targetHolder = world.registryAccess().registryOrThrow(Registries.BIOME).getHolder(biomeKeyObj);
+        if (targetHolder.isEmpty()) {
+            targetHolder = world.registryAccess().registryOrThrow(Registries.BIOME).getHolder(ResourceKey.create(Registries.BIOME, new ResourceLocation("minecraft", "plains")));
+        }
+        if (targetHolder.isEmpty()) {
+            return null;
+        }
+        Holder<Biome> biomeTarget = targetHolder.get();
+        ResourceKey<Biome> biomeKeyRef = biomeKeyObj;
+        var pair = world.findClosestBiome3d(holder -> holder.is(biomeKeyRef), near, 640, 8, 8);
+        BlockPos found = pair != null ? pair.getFirst() : null;
         if (found == null) {
-            found = world.findNearestBiome(biomeTarget, near, 2560, 8);
+            pair = world.findClosestBiome3d(holder -> holder.is(biomeKeyRef), near, 2560, 8, 8);
+            found = pair != null ? pair.getFirst() : null;
         }
         if (found == null) {
             return null;
         }
         ChunkPrep.forcePopulateAround(world, found, 1);
-        int y = world.getHeightmapPos(net.minecraft.world.gen.Heightmap.Type.MOTION_BLOCKING_NO_LEAVES, found).getY();
+        int y = world.getHeightmapPos(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, found).getY();
         return new BlockPos(found.getX(), Math.max(1, y), found.getZ());
     }
 
     @Nullable
-    private static BlockPos findStructureStrict(ServerWorld world, BlockPos near, String name) {
+    private static BlockPos findStructureStrict(ServerLevel world, BlockPos near, String name) {
         BlockPos origin = findNearestStructure(world, name, near);
         if (origin == null) {
             return null;
@@ -170,16 +183,16 @@ public final class DestinationLocator {
         if (isWaterOrFloatStructure(name)) {
             return findAirLanding(world, origin);
         }
-        int y = world.getHeightmapPos(net.minecraft.world.gen.Heightmap.Type.MOTION_BLOCKING_NO_LEAVES, origin).getY();
+        int y = world.getHeightmapPos(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, origin).getY();
         return new BlockPos(origin.getX(), Math.max(1, y), origin.getZ());
     }
 
     @Nullable
-    private static BlockPos findInteriorLanding(ServerWorld world, BlockPos origin, String name) {
+    private static BlockPos findInteriorLanding(ServerLevel world, BlockPos origin, String name) {
         boolean nether = DimUtil.isNether(DimUtil.levelKey(world));
         int minY = nether ? 32 : 5;
         int maxY = nether ? 120 : Math.min(world.getMaxBuildHeight() - 3, 120);
-        int preferY = origin.getY() > 5 ? MathHelper.clamp(origin.getY(), minY, maxY) : (nether ? 64 : 40);
+        int preferY = origin.getY() > 5 ? Mth.clamp(origin.getY(), minY, maxY) : (nether ? 64 : 40);
 
         BlockPos bestInside = null;
         BlockPos bestInsideStructFloor = null;
@@ -236,10 +249,10 @@ public final class DestinationLocator {
     }
 
     @Nullable
-    private static BlockPos findAirLanding(ServerWorld world, BlockPos origin) {
+    private static BlockPos findAirLanding(ServerLevel world, BlockPos origin) {
         int minY = 1;
         int maxY = Math.min(world.getMaxBuildHeight() - 3, 200);
-        int preferY = MathHelper.clamp(origin.getY() > 0 ? origin.getY() : 64, minY, maxY);
+        int preferY = Mth.clamp(origin.getY() > 0 ? origin.getY() : 64, minY, maxY);
 
         BlockPos bestSolid = null;
         BlockPos bestAir = null;
@@ -285,39 +298,39 @@ public final class DestinationLocator {
         return bestSolid != null ? bestSolid : bestAir;
     }
 
-    private static boolean hasCover(ServerWorld world, BlockPos feet) {
+    private static boolean hasCover(ServerLevel world, BlockPos feet) {
         BlockPos above = feet.above(3);
         BlockState ceiling = world.getBlockState(above);
-        return ceiling.getMaterial().blocksMotion() || !world.canSeeSky(feet);
+        return ceiling.blocksMotion() || !world.canSeeSky(feet);
     }
 
-    private static boolean isStructureFloor(ServerWorld world, BlockPos ground) {
+    private static boolean isStructureFloor(ServerLevel world, BlockPos ground) {
         return STRUCTURE_FLOORS.contains(world.getBlockState(ground).getBlock());
     }
 
-    private static boolean isTwoHighAir(ServerWorld world, BlockPos feet) {
+    private static boolean isTwoHighAir(ServerLevel world, BlockPos feet) {
         BlockState a = world.getBlockState(feet);
         BlockState b = world.getBlockState(feet.above());
-        if (a.getMaterial().blocksMotion() || b.getMaterial().blocksMotion()) {
+        if (a.blocksMotion() || b.blocksMotion()) {
             return false;
         }
-        if (a.getMaterial().isLiquid() || b.getMaterial().isLiquid()) {
+        if (!a.getFluidState().isEmpty() || !b.getFluidState().isEmpty()) {
             return false;
         }
-        return a.isAir(world, feet) || a.getMaterial().isReplaceable();
+        return a.isAir() || a.canBeReplaced();
     }
 
-    private static boolean hasSolidFloor(ServerWorld world, BlockPos feet) {
+    private static boolean hasSolidFloor(ServerLevel world, BlockPos feet) {
         BlockPos ground = feet.below();
         BlockState g = world.getBlockState(ground);
-        return g.isFaceSturdy(world, ground, Direction.UP) && !g.getMaterial().isLiquid();
+        return g.isFaceSturdy(world, ground, net.minecraft.core.Direction.UP) && g.getFluidState().isEmpty();
     }
 
-    private static boolean canQueryStructure(ServerWorld world, String name) {
-        return structureForName(name) != null;
+    private static boolean canQueryStructure(ServerLevel world, String name) {
+        return structureKeyForName(name) != null;
     }
 
-    private static boolean isPositionInStructure(ServerWorld world, String name, BlockPos pos) {
+    private static boolean isPositionInStructure(ServerLevel world, String name, BlockPos pos) {
         BlockPos origin = findNearestStructure(world, name, pos);
         if (origin == null) {
             return false;
@@ -326,49 +339,70 @@ public final class DestinationLocator {
     }
 
     @Nullable
-    private static BlockPos findNearestStructure(ServerWorld world, String name, BlockPos near) {
-        Structure<?> structure = structureForName(name);
-        if (structure == null) {
+    private static BlockPos findNearestStructure(ServerLevel world, String name, BlockPos near) {
+        ResourceKey<Structure> structureKey = structureKeyForName(name);
+        if (structureKey == null) {
             return null;
         }
-        BlockPos found = world.findNearestMapFeature(structure, near, 640, false);
-        if (found == null) {
-            found = world.findNearestMapFeature(structure, near, 640, true);
+        var registry = world.registryAccess().registryOrThrow(Registries.STRUCTURE);
+        Optional<Holder.Reference<Structure>> holder = registry.getHolder(structureKey);
+        if (holder.isEmpty()) {
+            return null;
         }
-        return found;
+        var result = world.getChunkSource().getGenerator().findNearestMapStructure(
+                world, HolderSet.direct(holder.get()), near, 640, false);
+        if (result == null) {
+            result = world.getChunkSource().getGenerator().findNearestMapStructure(
+                    world, HolderSet.direct(holder.get()), near, 640, true);
+        }
+        return result != null ? result.getFirst() : null;
     }
 
     @Nullable
-    private static Structure<?> structureForName(String name) {
+    private static ResourceKey<Structure> structureKeyForName(String name) {
         if (name == null) {
             return null;
         }
+        String id;
         switch (name) {
             case "Village":
-                return Structure.VILLAGE;
+                id = "village";
+                break;
             case "Monument":
-                return Structure.OCEAN_MONUMENT;
+                id = "monument";
+                break;
             case "Mansion":
-                return Structure.WOODLAND_MANSION;
+                id = "mansion";
+                break;
             case "Temple":
-                return Structure.DESERT_PYRAMID;
+                id = "desert_pyramid";
+                break;
             case "Mineshaft":
-                return Structure.MINESHAFT;
+                id = "mineshaft";
+                break;
             case "Stronghold":
-                return Structure.STRONGHOLD;
+                id = "stronghold";
+                break;
             case "Fortress":
-                return Structure.NETHER_BRIDGE;
+                id = "fortress";
+                break;
             case "EndCity":
-                return Structure.END_CITY;
+                id = "end_city";
+                break;
             default:
-                ResourceLocation id = new ResourceLocation(name.contains(":") ? name : "minecraft:" + name.toLowerCase());
-                return ForgeRegistries.STRUCTURE_FEATURES.getValue(id);
+                id = name.contains(":") ? name.substring(name.indexOf(':') + 1) : name.toLowerCase();
+                ResourceLocation loc = ResourceLocation.tryParse(name.contains(":") ? name : "minecraft:" + id);
+                if (loc != null) {
+                    return ResourceKey.create(Registries.STRUCTURE, loc);
+                }
+                return null;
         }
+        return ResourceKey.create(Registries.STRUCTURE, new ResourceLocation("minecraft", id));
     }
 
     public static List<Biome> allBiomes() {
         List<Biome> list = new ArrayList<>();
-        for (Biome b : ForgeRegistries.BIOMES) {
+        for (Biome b : ForgeRegistries.BIOMES.getValues()) {
             if (b != null) {
                 list.add(b);
             }

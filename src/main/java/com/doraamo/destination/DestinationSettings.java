@@ -1,10 +1,12 @@
 package com.doraamo.destination;
 
 import com.doraamo.util.DimUtil;
-import net.minecraft.nbt.CompoundNBT;
-import net.minecraft.util.ResourceLocation;
-import net.minecraft.util.math.BlockPos;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraftforge.registries.ForgeRegistries;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.util.Mth;
+import net.minecraft.world.level.biome.Biome;
 
 import javax.annotation.Nullable;
 
@@ -26,7 +28,7 @@ public class DestinationSettings {
     public int z;
     public boolean forceUnsafe;
 
-    public CompoundNBT writeToNBT(CompoundNBT tag) {
+    public CompoundTag writeToNBT(CompoundTag tag) {
         tag.putString("Dim", dimension == null ? "" : dimension);
         tag.putString("Mode", mode.name());
         tag.putString("Biome", biomeKey == null ? "minecraft:plains" : biomeKey);
@@ -38,13 +40,13 @@ public class DestinationSettings {
         return tag;
     }
 
-    public static DestinationSettings fromNBT(CompoundNBT tag) {
+    public static DestinationSettings fromNBT(CompoundTag tag) {
         DestinationSettings s = new DestinationSettings();
         if (tag == null) {
             return s;
         }
         if (tag.contains("Dim")) {
-            if (tag.get("Dim").getId() == 8) {
+            if (tag.get("Dim").getId() == CompoundTag.TAG_STRING) {
                 s.dimension = DimUtil.normalize(tag.getString("Dim"));
             } else {
                 s.dimension = DimUtil.fromLegacyInt(tag.getInt("Dim"));
@@ -59,7 +61,7 @@ public class DestinationSettings {
             s.mode = Mode.SCALED;
         }
         if (tag.contains("Biome")) {
-            if (tag.get("Biome").getId() == 8) {
+            if (tag.get("Biome").getId() == CompoundTag.TAG_STRING) {
                 s.biomeKey = tag.getString("Biome");
             } else {
                 int biomeId = tag.getInt("Biome");
@@ -84,17 +86,17 @@ public class DestinationSettings {
         return s;
     }
 
-    public BlockPos getCoordPos() {
-        return new BlockPos(x, y, z);
+    public net.minecraft.core.BlockPos getCoordPos() {
+        return new net.minecraft.core.BlockPos(x, y, z);
     }
 
     public DestinationSettings copy() {
-        return fromNBT(writeToNBT(new CompoundNBT()));
+        return fromNBT(writeToNBT(new CompoundTag()));
     }
 
     private static String biomeKeyFromLegacyId(int id) {
         int index = 0;
-        for (net.minecraft.world.biome.Biome biome : ForgeRegistries.BIOMES.getValues()) {
+        for (Biome biome : ForgeRegistries.BIOMES.getValues()) {
             if (index++ == id) {
                 ResourceLocation key = ForgeRegistries.BIOMES.getKey(biome);
                 return key != null ? key.toString() : "minecraft:plains";

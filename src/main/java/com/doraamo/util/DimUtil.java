@@ -1,12 +1,12 @@
 package com.doraamo.util;
 
 import com.doraamo.DoraAmo;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.util.RegistryKey;
-import net.minecraft.util.ResourceLocation;
-import net.minecraft.util.registry.Registry;
-import net.minecraft.world.World;
-import net.minecraft.world.server.ServerWorld;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.level.Level;
 
 import javax.annotation.Nullable;
 import java.util.ArrayList;
@@ -66,24 +66,27 @@ public final class DimUtil {
         }
     }
 
-    public static RegistryKey<World> worldKey(String dim) {
-        ResourceLocation loc = new ResourceLocation(normalize(dim));
-        return RegistryKey.create(Registry.DIMENSION_REGISTRY, loc);
+    public static ResourceKey<Level> worldKey(String dim) {
+        ResourceLocation loc = ResourceLocation.tryParse(normalize(dim));
+        if (loc == null) {
+            loc = new ResourceLocation(normalize(dim));
+        }
+        return ResourceKey.create(Registries.DIMENSION, loc);
     }
 
     @Nullable
-    public static ServerWorld getLevel(MinecraftServer server, String dim) {
+    public static ServerLevel getLevel(MinecraftServer server, String dim) {
         if (isBlank(dim)) {
             return null;
         }
         return server.getLevel(worldKey(dim));
     }
 
-    public static String levelKey(World world) {
+    public static String levelKey(Level world) {
         return world.dimension().location().toString();
     }
 
-    public static double coordinateScale(World world) {
+    public static double coordinateScale(Level world) {
         return world.dimensionType().coordinateScale();
     }
 
@@ -97,7 +100,7 @@ public final class DimUtil {
 
     public static List<String> allLevelKeys(MinecraftServer server) {
         List<String> keys = new ArrayList<>();
-        for (ServerWorld level : server.getAllLevels()) {
+        for (ServerLevel level : server.getAllLevels()) {
             keys.add(level.dimension().location().toString());
         }
         return keys;

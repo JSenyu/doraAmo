@@ -3,12 +3,12 @@ package com.doraamo.network;
 import com.doraamo.client.GuiPortalTuner;
 import com.doraamo.portal.PortalDoorPlacer;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.network.PacketBuffer;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.network.FriendlyByteBuf;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
 import net.minecraftforge.fml.DistExecutor;
-import net.minecraftforge.fml.network.NetworkEvent;
+import net.minecraftforge.network.NetworkEvent;
 
 import java.util.function.Supplier;
 
@@ -35,7 +35,7 @@ public class PacketValidateResult {
         return new PacketValidateResult(false, 0, 0, 0, PortalDoorPlacer.PlaceHazard.NONE.ordinal());
     }
 
-    public static void encode(PacketValidateResult msg, PacketBuffer buf) {
+    public static void encode(PacketValidateResult msg, FriendlyByteBuf buf) {
         buf.writeBoolean(msg.found);
         buf.writeInt(msg.x);
         buf.writeInt(msg.y);
@@ -43,7 +43,7 @@ public class PacketValidateResult {
         buf.writeByte(msg.hazardOrdinal);
     }
 
-    public static PacketValidateResult decode(PacketBuffer buf) {
+    public static PacketValidateResult decode(FriendlyByteBuf buf) {
         PacketValidateResult msg = new PacketValidateResult();
         msg.found = buf.readBoolean();
         msg.x = buf.readInt();
@@ -61,13 +61,12 @@ public class PacketValidateResult {
     @OnlyIn(Dist.CLIENT)
     private static void handleClient(PacketValidateResult message) {
         Screen screen = Minecraft.getInstance().screen;
-        if (screen instanceof GuiPortalTuner) {
+        if (screen instanceof GuiPortalTuner tuner) {
             PortalDoorPlacer.PlaceHazard[] values = PortalDoorPlacer.PlaceHazard.values();
             PortalDoorPlacer.PlaceHazard hazard = message.hazardOrdinal < values.length
                     ? values[message.hazardOrdinal]
                     : PortalDoorPlacer.PlaceHazard.WALL;
-            ((GuiPortalTuner) screen).onValidateResult(
-                    message.found, message.x, message.y, message.z, hazard);
+            tuner.onValidateResult(message.found, message.x, message.y, message.z, hazard);
         }
     }
 }

@@ -1,13 +1,13 @@
 package com.doraamo.portal;
 
 import com.doraamo.tileentity.TileEntityPortalDoor;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.tileentity.TileEntity;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.ChunkPos;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.world.World;
-import net.minecraft.world.chunk.Chunk;
+import net.minecraft.core.BlockPos;
+import net.minecraft.util.Mth;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.chunk.LevelChunk;
+import net.minecraft.world.level.ChunkPos;
 
 import javax.annotation.Nullable;
 
@@ -31,7 +31,7 @@ public final class PortalFinder {
     }
 
     @Nullable
-    public static NearestPortal findNearest(World world, PlayerEntity player) {
+    public static NearestPortal findNearest(Level world, Player player) {
         if (world == null || player == null) {
             return null;
         }
@@ -45,12 +45,11 @@ public final class PortalFinder {
                 if (!world.hasChunk(origin.x + cx, origin.z + cz)) {
                     continue;
                 }
-                Chunk chunk = world.getChunk(origin.x + cx, origin.z + cz);
-                for (TileEntity te : chunk.getBlockEntities().values()) {
-                    if (!(te instanceof TileEntityPortalDoor)) {
+                LevelChunk chunk = world.getChunk(origin.x + cx, origin.z + cz);
+                for (BlockEntity te : chunk.getBlockEntities().values()) {
+                    if (!(te instanceof TileEntityPortalDoor portal)) {
                         continue;
                     }
-                    TileEntityPortalDoor portal = (TileEntityPortalDoor) te;
                     BlockPos p = portal.getBlockPos();
                     double dist = player.distanceToSqr(p.getX() + 0.5D, p.getY() + 0.5D, p.getZ() + 0.5D);
                     if (dist < bestDist) {
@@ -67,7 +66,7 @@ public final class PortalFinder {
         return new NearestPortal(bestPos, bestSub, Math.sqrt(bestDist));
     }
 
-    public static String directionKey(PlayerEntity player, BlockPos target) {
+    public static String directionKey(Player player, BlockPos target) {
         double dx = (target.getX() + 0.5D) - player.getX();
         double dz = (target.getZ() + 0.5D) - player.getZ();
         double dy = (target.getY() + 0.5D) - (player.getY() + player.getEyeHeight());
@@ -77,8 +76,8 @@ public final class PortalFinder {
             return dy > 0 ? "doraamo.tuner.dir.up" : "doraamo.tuner.dir.down";
         }
 
-        double angle = MathHelper.wrapDegrees(Math.toDegrees(Math.atan2(-dx, dz)));
-        int sector = MathHelper.floor((angle + 180.0D + 22.5D) / 45.0D) & 7;
+        double angle = Mth.wrapDegrees(Math.toDegrees(Math.atan2(-dx, dz)));
+        int sector = Mth.floor((angle + 180.0D + 22.5D) / 45.0D) & 7;
         switch (sector) {
             case 0: return "doraamo.tuner.dir.s";
             case 1: return "doraamo.tuner.dir.sw";

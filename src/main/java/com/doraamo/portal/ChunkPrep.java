@@ -1,18 +1,18 @@
 package com.doraamo.portal;
 
 import com.doraamo.block.ModBlocks;
-import net.minecraft.block.Blocks;
-import net.minecraft.util.Direction;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.world.chunk.ChunkStatus;
-import net.minecraft.world.server.ServerWorld;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.chunk.ChunkStatus;
+import net.minecraft.server.level.ServerLevel;
 
 public final class ChunkPrep {
 
     private ChunkPrep() {
     }
 
-    public static void forcePopulateAround(ServerWorld world, BlockPos center, int radiusChunks) {
+    public static void forcePopulateAround(ServerLevel world, BlockPos center, int radiusChunks) {
         if (world == null || center == null) {
             return;
         }
@@ -26,7 +26,7 @@ public final class ChunkPrep {
         }
     }
 
-    public static BlockPos prepareEndPortalSite(ServerWorld world, Direction facing) {
+    public static BlockPos prepareEndPortalSite(ServerLevel world, Direction facing) {
         BlockPos spawn = world.getSharedSpawnPos();
         if (spawn == null) {
             spawn = new BlockPos(100, 50, 0);

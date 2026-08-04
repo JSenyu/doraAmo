@@ -12,21 +12,21 @@ import com.doraamo.portal.PortalRef;
 import com.doraamo.teleport.PortalDoorTeleporter;
 import com.doraamo.util.DimUtil;
 import com.doraamo.util.LangKeys;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.PortalInfo;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.player.ServerPlayerEntity;
-import net.minecraft.nbt.CompoundNBT;
-import net.minecraft.network.NetworkManager;
-import net.minecraft.network.play.server.SUpdateTileEntityPacket;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.Connection;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.tileentity.ITickableTileEntity;
-import net.minecraft.tileentity.TileEntity;
-import net.minecraft.util.Direction;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.text.TranslationTextComponent;
-import net.minecraft.world.server.ServerWorld;
-import net.minecraftforge.fml.common.ObfuscationReflectionHelper;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.portal.PortalInfo;
+import net.minecraftforge.fml.util.ObfuscationReflectionHelper;
 
 import javax.annotation.Nullable;
 import java.util.HashMap;
@@ -34,7 +34,7 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.UUID;
 
-public class TileEntityPortalDoor extends TileEntity implements ITickableTileEntity {
+public class TileEntityPortalDoor extends BlockEntity {
 
     private DestinationSettings destination;
     private boolean subGate;
@@ -44,8 +44,12 @@ public class TileEntityPortalDoor extends TileEntity implements ITickableTileEnt
     private final Map<UUID, Integer> portalTimers = new HashMap<>();
     private final Map<UUID, Boolean> touchedThisTick = new HashMap<>();
 
-    public TileEntityPortalDoor() {
-        super(ModBlocks.PORTAL_DOOR_TILE.get());
+    public TileEntityPortalDoor(BlockPos pos, BlockState state) {
+        super(ModBlocks.PORTAL_DOOR_TILE.get(), pos, state);
+    }
+
+    public static void serverTick(Level level, BlockPos pos, BlockState state, TileEntityPortalDoor be) {
+        be.tick();
     }
 
     public String getTargetDimension() {
@@ -137,11 +141,11 @@ public class TileEntityPortalDoor extends TileEntity implements ITickableTileEnt
         return DimUtil.getLevel(entity.getServer(), destination.dimension) != null;
     }
 
-    public void tryTeleportPlayer(ServerPlayerEntity player) {
+    public void tryTeleportPlayer(ServerPlayer player) {
         if (!canTeleportFixed(player)) {
             return;
         }
-        if (subGate && player.level.dimension().location().toString().equals(mainDim)
+        if (subGate && player.level().dimension().location().toString().equals(mainDim)
                 && player.distanceToSqr(mainPos.getX() + 0.5D, mainPos.getY(), mainPos.getZ() + 0.5D) < 9.0D) {
             return;
         }
@@ -167,13 +171,13 @@ public class TileEntityPortalDoor extends TileEntity implements ITickableTileEnt
         }
     }
 
-    private void teleportToMain(ServerPlayerEntity player) {
+    private void teleportToMain(ServerPlayer player) {
         MinecraftServer server = player.getServer();
         if (server == null) {
             return;
         }
-        ServerWorld fromWorld = (ServerWorld) level;
-        ServerWorld targetWorld = DimUtil.getLevel(server, mainDim);
+        ServerLevel fromWorld = (ServerLevel) level;
+        ServerLevel targetWorld = DimUtil.getLevel(server, mainDim);
         if (targetWorld == null) {
             return;
         }
@@ -189,13 +193,13 @@ public class TileEntityPortalDoor extends TileEntity implements ITickableTileEnt
         } else {
             land = PortalDoorTeleporter.findLandingFromPortal(targetWorld, scaled);
             if (land == null) {
-                player.displayClientMessage(new TranslationTextComponent(LangKeys.PORTAL_NO_SAFE_LANDING), true);
+                player.displayClientMessage(Component.translatable(LangKeys.PORTAL_NO_SAFE_LANDING), true);
                 return;
             }
         }
 
         PortalDoorTeleporter teleporter = new PortalDoorTeleporter(targetWorld, land);
-        if (!player.level.dimension().location().toString().equals(mainDim)) {
+        if (!player.level().dimension().location().toString().equals(mainDim)) {
             player.changeDimension(targetWorld, teleporter);
         } else {
             applyLocalTeleport(player, teleporter, targetWorld);
@@ -203,7 +207,7 @@ public class TileEntityPortalDoor extends TileEntity implements ITickableTileEnt
         setPortalCooldownTicks(player, player.getPortalWaitTime());
     }
 
-    private void teleportFromMain(ServerPlayerEntity player) {
+    private void teleportFromMain(ServerPlayer player) {
         if (destination == null) {
             return;
         }
@@ -212,8 +216,8 @@ public class TileEntityPortalDoor extends TileEntity implements ITickableTileEnt
         if (server == null) {
             return;
         }
-        ServerWorld fromWorld = (ServerWorld) level;
-        ServerWorld targetWorld = DimUtil.getLevel(server, dimKey);
+        ServerLevel fromWorld = (ServerLevel) level;
+        ServerLevel targetWorld = DimUtil.getLevel(server, dimKey);
         if (targetWorld == null) {
             DoraAmo.logger.warn("Could not load world for dimension {}", dimKey);
             return;
@@ -273,11 +277,11 @@ public class TileEntityPortalDoor extends TileEntity implements ITickableTileEnt
                 subPos = PortalDoorPlacer.placeDoorForced(targetWorld, resolved, facing,
                         BlockPortalDoor.DoorType.SUB, mainRef);
             } else {
-                player.displayClientMessage(new TranslationTextComponent(LangKeys.PORTAL_TARGET_BLOCKED), true);
+                player.displayClientMessage(Component.translatable(LangKeys.PORTAL_TARGET_BLOCKED), true);
                 return;
             }
             if (subPos == null) {
-                player.displayClientMessage(new TranslationTextComponent(LangKeys.PORTAL_TARGET_BLOCKED), true);
+                player.displayClientMessage(Component.translatable(LangKeys.PORTAL_TARGET_BLOCKED), true);
                 return;
             }
         } else {
@@ -288,7 +292,7 @@ public class TileEntityPortalDoor extends TileEntity implements ITickableTileEnt
                         BlockPortalDoor.DoorType.SUB, mainRef);
             }
             if (subPos == null) {
-                player.displayClientMessage(new TranslationTextComponent(LangKeys.PORTAL_NO_SAFE_LANDING), true);
+                player.displayClientMessage(Component.translatable(LangKeys.PORTAL_NO_SAFE_LANDING), true);
                 return;
             }
         }
@@ -297,9 +301,9 @@ public class TileEntityPortalDoor extends TileEntity implements ITickableTileEnt
         finishTeleport(player, targetWorld, dimKey, playerLand);
     }
 
-    private static void finishTeleport(ServerPlayerEntity player, ServerWorld targetWorld, String dimKey, BlockPos land) {
+    private static void finishTeleport(ServerPlayer player, ServerLevel targetWorld, String dimKey, BlockPos land) {
         PortalDoorTeleporter teleporter = new PortalDoorTeleporter(targetWorld, land);
-        if (!player.level.dimension().location().toString().equals(dimKey)) {
+        if (!player.level().dimension().location().toString().equals(dimKey)) {
             player.changeDimension(targetWorld, teleporter);
         } else {
             applyLocalTeleport(player, teleporter, targetWorld);
@@ -307,21 +311,20 @@ public class TileEntityPortalDoor extends TileEntity implements ITickableTileEnt
         setPortalCooldownTicks(player, Math.max(player.getPortalWaitTime(), 60));
     }
 
-    private static void applyLocalTeleport(ServerPlayerEntity player, PortalDoorTeleporter teleporter, ServerWorld world) {
+    private static void applyLocalTeleport(ServerPlayer player, PortalDoorTeleporter teleporter, ServerLevel world) {
         PortalInfo info = teleporter.getPortalInfo(player, world, w -> null);
         if (info != null) {
             player.teleportTo(info.pos.x, info.pos.y, info.pos.z);
-            player.absMoveTo(info.pos.x, info.pos.y, info.pos.z, info.yRot, info.xRot);
+            player.setPos(info.pos.x, info.pos.y, info.pos.z);
             player.setDeltaMovement(info.speed);
             player.fallDistance = 0.0F;
         }
     }
 
-    private static void setPortalCooldownTicks(ServerPlayerEntity player, int ticks) {
-        ObfuscationReflectionHelper.setPrivateValue(ServerPlayerEntity.class, player, ticks, "portalCooldown");
+    private static void setPortalCooldownTicks(ServerPlayer player, int ticks) {
+        ObfuscationReflectionHelper.setPrivateValue(ServerPlayer.class, player, ticks, "portalCooldown");
     }
 
-    @Override
     public void tick() {
         if (level == null || level.isClientSide) {
             return;
@@ -337,26 +340,25 @@ public class TileEntityPortalDoor extends TileEntity implements ITickableTileEnt
     }
 
     @Override
-    public CompoundNBT save(CompoundNBT compound) {
-        super.save(compound);
+    protected void saveAdditional(CompoundTag compound) {
+        super.saveAdditional(compound);
         compound.putString("TargetDim", getTargetDimension());
         if (destination != null) {
-            compound.put("Dest", destination.writeToNBT(new CompoundNBT()));
+            compound.put("Dest", destination.writeToNBT(new CompoundTag()));
         }
         compound.putBoolean("SubGate", subGate);
         compound.putString("MainDim", mainDim);
         compound.putInt("MainX", mainPos.getX());
         compound.putInt("MainY", mainPos.getY());
         compound.putInt("MainZ", mainPos.getZ());
-        return compound;
     }
 
     @Override
-    public void load(BlockState state, CompoundNBT compound) {
-        super.load(state, compound);
+    public void load(CompoundTag compound) {
+        super.load(compound);
         subGate = compound.getBoolean("SubGate");
         if (compound.contains("MainDim")) {
-            if (compound.get("MainDim").getId() == 8) {
+            if (compound.get("MainDim").getId() == CompoundTag.TAG_STRING) {
                 mainDim = DimUtil.normalize(compound.getString("MainDim"));
             } else {
                 mainDim = DimUtil.fromLegacyInt(compound.getInt("MainDim"));
@@ -367,7 +369,7 @@ public class TileEntityPortalDoor extends TileEntity implements ITickableTileEnt
             destination = DestinationSettings.fromNBT(compound.getCompound("Dest"));
         } else if (compound.contains("TargetDim")) {
             String dim = compound.getString("TargetDim");
-            if (compound.get("TargetDim").getId() != 8) {
+            if (compound.get("TargetDim").getId() != CompoundTag.TAG_STRING) {
                 int legacy = compound.getInt("TargetDim");
                 dim = legacy == Integer.MIN_VALUE ? "" : DimUtil.fromLegacyInt(legacy);
             }
@@ -378,23 +380,26 @@ public class TileEntityPortalDoor extends TileEntity implements ITickableTileEnt
     }
 
     @Override
-    public CompoundNBT getUpdateTag() {
-        return save(new CompoundNBT());
+    public CompoundTag getUpdateTag() {
+        return saveWithoutMetadata();
     }
 
     @Nullable
     @Override
-    public SUpdateTileEntityPacket getUpdatePacket() {
-        return new SUpdateTileEntityPacket(worldPosition, 0, getUpdateTag());
+    public ClientboundBlockEntityDataPacket getUpdatePacket() {
+        return ClientboundBlockEntityDataPacket.create(this);
     }
 
     @Override
-    public void onDataPacket(NetworkManager net, SUpdateTileEntityPacket pkt) {
-        load(getBlockState(), pkt.getTag());
+    public void onDataPacket(Connection net, ClientboundBlockEntityDataPacket pkt) {
+        CompoundTag tag = pkt.getTag();
+        if (tag != null) {
+            load(tag);
+        }
     }
 
     @Override
-    public void handleUpdateTag(BlockState state, CompoundNBT tag) {
-        load(state, tag);
+    public void handleUpdateTag(CompoundTag tag) {
+        load(tag);
     }
 }

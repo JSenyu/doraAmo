@@ -1,6 +1,5 @@
 package com.doraamo.client;
 
-import com.doraamo.DoraAmo;
 import com.doraamo.config.DimensionConfig;
 import com.doraamo.config.catalog.DisplayCatalog;
 import com.doraamo.destination.DestinationLocator;
@@ -12,20 +11,19 @@ import com.doraamo.portal.PortalDoorPlacer;
 import com.doraamo.util.DimUtil;
 import com.doraamo.util.LangKeys;
 import com.doraamo.util.SearchFilter;
-import com.mojang.blaze3d.matrix.MatrixStack;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.widget.TextFieldWidget;
-import net.minecraft.client.gui.widget.button.Button;
-import net.minecraft.client.resources.I18n;
-import net.minecraft.util.Hand;
-import net.minecraft.util.ResourceLocation;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.world.biome.Biome;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.level.biome.Biome;
 import net.minecraftforge.registries.ForgeRegistries;
-import net.minecraft.util.text.StringTextComponent;
-import net.minecraft.util.text.TranslationTextComponent;
-import net.minecraft.world.biome.Biome;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.util.FormattedCharSequence;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.level.biome.Biome;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
 import org.lwjgl.glfw.GLFW;
@@ -36,25 +34,16 @@ import java.util.List;
 @OnlyIn(Dist.CLIENT)
 public class GuiPortalTuner extends Screen {
 
-    private static final int ID_MODE_COORDS = 10;
-    private static final int ID_MODE_BIOME = 11;
-    private static final int ID_MODE_STRUCTURE = 12;
-    private static final int ID_EXPLORE = 90;
-    private static final int ID_SAVE = 100;
-    private static final int ID_FORCE = 101;
-
-    private enum FocusPanel { DIM, CONTENT }
-
-    private final Hand hand;
+    private final InteractionHand hand;
     private final DestinationSettings settings;
     private final BlockPos portalPos;
     private final boolean hasExistingBinding;
     private final DestinationSettings originalBinding;
 
-    private TextFieldWidget filterField;
-    private TextFieldWidget fieldX;
-    private TextFieldWidget fieldY;
-    private TextFieldWidget fieldZ;
+    private EditBox filterField;
+    private EditBox fieldX;
+    private EditBox fieldY;
+    private EditBox fieldZ;
     private String lastFilterText = "";
 
     private final List<DimensionConfig.DimensionEntry> dimEntries = new ArrayList<>();
@@ -86,8 +75,17 @@ public class GuiPortalTuner extends Screen {
     private int statusColor = 0xA0A0A0;
     private int foundX, foundY, foundZ;
 
-    public GuiPortalTuner(Hand hand, DestinationSettings settings, BlockPos portalPos, boolean hasExistingBinding) {
-        super(new TranslationTextComponent(LangKeys.GUI_TITLE));
+    private Button exploreButton;
+    private Button saveButton;
+    private Button forceButton;
+    private Button coordsModeButton;
+    private Button biomeModeButton;
+    private Button structureModeButton;
+
+    private enum FocusPanel { DIM, CONTENT }
+
+    public GuiPortalTuner(InteractionHand hand, DestinationSettings settings, BlockPos portalPos, boolean hasExistingBinding) {
+        super(Component.translatable(LangKeys.GUI_TITLE));
         this.hand = hand;
         this.settings = settings;
         this.portalPos = portalPos.immutable();
@@ -102,9 +100,7 @@ public class GuiPortalTuner extends Screen {
     protected void init() {
         super.init();
         ClientSetup.refreshLanguagePreference();
-        minecraft.keyboardHandler.setSendRepeatsToGui(true);
-        this.buttons.clear();
-        this.children.clear();
+        clearWidgets();
 
         int margin = 8;
         int topBar = 36;
@@ -135,42 +131,45 @@ public class GuiPortalTuner extends Screen {
 
         int btnH = 20;
         int by = rightTop;
-        addButton(new Button(rightLeft, by, rightW, btnH, new TranslationTextComponent(LangKeys.GUI_EXPLORE), b -> startExplore()));
+        exploreButton = addRenderableWidget(Button.builder(Component.translatable(LangKeys.GUI_EXPLORE), b -> startExplore())
+                .bounds(rightLeft, by, rightW, btnH).build());
         by += btnH + 4;
-        addButton(new Button(rightLeft, by, rightW, btnH, new TranslationTextComponent(LangKeys.GUI_SAVE), b -> trySave(false)));
+        saveButton = addRenderableWidget(Button.builder(Component.translatable(LangKeys.GUI_SAVE), b -> trySave(false))
+                .bounds(rightLeft, by, rightW, btnH).build());
         by += btnH + 4;
-        addButton(new Button(rightLeft, by, rightW, btnH, new TranslationTextComponent(LangKeys.GUI_FORCE_SAVE), b -> doSave(true)));
+        forceButton = addRenderableWidget(Button.builder(Component.translatable(LangKeys.GUI_FORCE_SAVE), b -> doSave(true))
+                .bounds(rightLeft, by, rightW, btnH).build());
         infoTop = by + btnH + 10;
 
         int modeBtnW = (midW - 8) / 3;
-        addButton(new Button(midLeft, midTop, modeBtnW, 20, new TranslationTextComponent(LangKeys.modeKey("coords")),
-                b -> switchMode(DestinationSettings.Mode.COORDS)));
-        addButton(new Button(midLeft + modeBtnW + 4, midTop, modeBtnW, 20, new TranslationTextComponent(LangKeys.modeKey("biome")),
-                b -> switchMode(DestinationSettings.Mode.BIOME)));
-        addButton(new Button(midLeft + (modeBtnW + 4) * 2, midTop, modeBtnW, 20, new TranslationTextComponent(LangKeys.modeKey("structure")),
-                b -> switchMode(DestinationSettings.Mode.STRUCTURE)));
+        coordsModeButton = addRenderableWidget(Button.builder(Component.translatable(LangKeys.modeKey("coords")),
+                b -> switchMode(DestinationSettings.Mode.COORDS)).bounds(midLeft, midTop, modeBtnW, 20).build());
+        biomeModeButton = addRenderableWidget(Button.builder(Component.translatable(LangKeys.modeKey("biome")),
+                b -> switchMode(DestinationSettings.Mode.BIOME)).bounds(midLeft + modeBtnW + 4, midTop, modeBtnW, 20).build());
+        structureModeButton = addRenderableWidget(Button.builder(Component.translatable(LangKeys.modeKey("structure")),
+                b -> switchMode(DestinationSettings.Mode.STRUCTURE)).bounds(midLeft + (modeBtnW + 4) * 2, midTop, modeBtnW, 20).build());
 
-        filterField = new TextFieldWidget(font, midLeft, midTop + modeRowH + 2, midW, filterH, new StringTextComponent(""));
+        filterField = new EditBox(font, midLeft, midTop + modeRowH + 2, midW, filterH, Component.literal(""));
         filterField.setMaxLength(64);
         filterField.setValue(lastFilterText);
-        children.add(filterField);
+        addRenderableWidget(filterField);
 
         int fieldW = Math.max(50, (midW - 40) / 3);
-        fieldX = new TextFieldWidget(font, midLeft + 14, contentTop + 8, fieldW, 18, new StringTextComponent("X"));
-        fieldY = new TextFieldWidget(font, midLeft + 14 + fieldW + 20, contentTop + 8, fieldW, 18, new StringTextComponent("Y"));
-        fieldZ = new TextFieldWidget(font, midLeft + 14 + (fieldW + 20) * 2, contentTop + 8, fieldW, 18, new StringTextComponent("Z"));
+        fieldX = new EditBox(font, midLeft + 14, contentTop + 8, fieldW, 18, Component.literal("X"));
+        fieldY = new EditBox(font, midLeft + 14 + fieldW + 20, contentTop + 8, fieldW, 18, Component.literal("Y"));
+        fieldZ = new EditBox(font, midLeft + 14 + (fieldW + 20) * 2, contentTop + 8, fieldW, 18, Component.literal("Z"));
         fieldX.setMaxLength(12);
         fieldY.setMaxLength(12);
         fieldZ.setMaxLength(12);
         fieldX.setValue(Integer.toString(settings.x));
         fieldY.setValue(Integer.toString(settings.y));
         fieldZ.setValue(Integer.toString(settings.z));
-        children.add(fieldX);
-        children.add(fieldY);
-        children.add(fieldZ);
+        addRenderableWidget(fieldX);
+        addRenderableWidget(fieldY);
+        addRenderableWidget(fieldZ);
 
         if (statusMessage.isEmpty()) {
-            statusMessage = I18n.get(LangKeys.GUI_STATUS_NEED_SEARCH);
+            statusMessage = Component.translatable(LangKeys.GUI_STATUS_NEED_SEARCH).getString();
             statusColor = 0xA0A0A0;
         }
 
@@ -263,7 +262,7 @@ public class GuiPortalTuner extends Screen {
         placeSafe = false;
         showForceOption = false;
         hazard = PortalDoorPlacer.PlaceHazard.NONE;
-        statusMessage = I18n.get(LangKeys.GUI_STATUS_NEED_SEARCH);
+        statusMessage = Component.translatable(LangKeys.GUI_STATUS_NEED_SEARCH).getString();
         statusColor = 0xA0A0A0;
         refreshWidgets();
     }
@@ -279,14 +278,15 @@ public class GuiPortalTuner extends Screen {
         this.showForceOption = false;
 
         if (!found) {
-            statusMessage = I18n.get(LangKeys.GUI_STATUS_NOT_FOUND);
+            statusMessage = Component.translatable(LangKeys.GUI_STATUS_NOT_FOUND).getString();
             statusColor = 0xFF5555;
         } else if (placeSafe) {
-            statusMessage = I18n.get(LangKeys.GUI_STATUS_FOUND_SAFE, x, y, z);
+            statusMessage = Component.translatable(LangKeys.GUI_STATUS_FOUND_SAFE, x, y, z).getString();
             statusColor = 0x55FF55;
             applyFoundCoords(x, y, z);
         } else {
-            statusMessage = I18n.get(LangKeys.GUI_STATUS_FOUND_UNSAFE, x, y, z, I18n.get(hazardLangKey(hazard)));
+            statusMessage = Component.translatable(LangKeys.GUI_STATUS_FOUND_UNSAFE, x, y, z,
+                    Component.translatable(hazardLangKey(hazard))).getString();
             statusColor = 0xFFFF55;
             applyFoundCoords(x, y, z);
         }
@@ -326,24 +326,13 @@ public class GuiPortalTuner extends Screen {
         filterField.visible = !coords;
         filterField.active = !coords;
 
-        for (net.minecraft.client.gui.widget.Widget w : buttons) {
-            if (!(w instanceof Button)) continue;
-            Button b = (Button) w;
-            if (b.getMessage().getString().equals(I18n.get(LangKeys.modeKey("coords")))) {
-                b.active = settings.mode != DestinationSettings.Mode.COORDS;
-            } else if (b.getMessage().getString().equals(I18n.get(LangKeys.modeKey("biome")))) {
-                b.active = settings.mode != DestinationSettings.Mode.BIOME;
-            } else if (b.getMessage().getString().equals(I18n.get(LangKeys.modeKey("structure")))) {
-                b.active = settings.mode != DestinationSettings.Mode.STRUCTURE;
-            } else if (b.getMessage().getString().equals(I18n.get(LangKeys.GUI_EXPLORE))) {
-                b.active = !searching;
-            } else if (b.getMessage().getString().equals(I18n.get(LangKeys.GUI_SAVE))) {
-                b.active = found && !searching;
-            } else if (b.getMessage().getString().equals(I18n.get(LangKeys.GUI_FORCE_SAVE))) {
-                b.visible = showForceOption;
-                b.active = showForceOption && found && !placeSafe && !searching;
-            }
-        }
+        coordsModeButton.active = settings.mode != DestinationSettings.Mode.COORDS;
+        biomeModeButton.active = settings.mode != DestinationSettings.Mode.BIOME;
+        structureModeButton.active = settings.mode != DestinationSettings.Mode.STRUCTURE;
+        exploreButton.active = !searching;
+        saveButton.active = found && !searching;
+        forceButton.visible = showForceOption;
+        forceButton.active = showForceOption && found && !placeSafe && !searching;
     }
 
     private static String localizeStructure(String structureId) {
@@ -352,33 +341,33 @@ public class GuiPortalTuner extends Screen {
 
     private static String localizeDimension(String dimensionKey) {
         if (DimUtil.isBlank(dimensionKey)) {
-            return I18n.get(LangKeys.DIMENSION_BLANK);
+            return Component.translatable(LangKeys.DIMENSION_BLANK).getString();
         }
         return DisplayCatalog.displayDimension(dimensionKey);
     }
 
     private static String localizeMode(DestinationSettings.Mode mode) {
-        return I18n.get(LangKeys.modeKey(mode.name()));
+        return Component.translatable(LangKeys.modeKey(mode.name())).getString();
     }
 
     private String formatBinding(DestinationSettings s) {
-        if (s == null) return I18n.get(LangKeys.GUI_BOUND_NONE);
+        if (s == null) return Component.translatable(LangKeys.GUI_BOUND_NONE).getString();
         String dim = localizeDimension(s.dimension);
         String mode = localizeMode(s.mode);
         if (s.mode == DestinationSettings.Mode.COORDS || s.mode == DestinationSettings.Mode.SCALED) {
-            return I18n.get(LangKeys.GUI_BOUND_COORDS, dim, mode, s.x, s.y, s.z);
+            return Component.translatable(LangKeys.GUI_BOUND_COORDS, dim, mode, s.x, s.y, s.z).getString();
         }
         if (s.mode == DestinationSettings.Mode.BIOME) {
-            Biome biome = ForgeRegistries.BIOMES.getValue(new ResourceLocation(s.biomeKey.contains(":") ? s.biomeKey : "minecraft:" + s.biomeKey));
+            ResourceLocation biomeLoc = ResourceLocation.tryParse(s.biomeKey.contains(":") ? s.biomeKey : "minecraft:" + s.biomeKey);
+            Biome biome = biomeLoc != null ? ForgeRegistries.BIOMES.getValue(biomeLoc) : null;
             String biomeName = biome != null ? BiomeNames.localize(biome) : s.biomeKey;
-            return I18n.get(LangKeys.GUI_BOUND_BIOME, dim, mode, biomeName);
+            return Component.translatable(LangKeys.GUI_BOUND_BIOME, dim, mode, biomeName).getString();
         }
-        return I18n.get(LangKeys.GUI_BOUND_STRUCTURE, dim, mode, localizeStructure(s.structureName));
+        return Component.translatable(LangKeys.GUI_BOUND_STRUCTURE, dim, mode, localizeStructure(s.structureName)).getString();
     }
 
     @Override
     public void removed() {
-        minecraft.keyboardHandler.setSendRepeatsToGui(false);
         super.removed();
     }
 
@@ -460,7 +449,8 @@ public class GuiPortalTuner extends Screen {
         readCoordFields();
         if (!placeSafe && !force) {
             showForceOption = true;
-            statusMessage = I18n.get(LangKeys.GUI_STATUS_SAVE_BLOCKED, I18n.get(hazardLangKey(hazard)));
+            statusMessage = Component.translatable(LangKeys.GUI_STATUS_SAVE_BLOCKED,
+                    Component.translatable(hazardLangKey(hazard))).getString();
             statusColor = 0xFFFF55;
             refreshWidgets();
             return;
@@ -504,7 +494,7 @@ public class GuiPortalTuner extends Screen {
         found = false;
         placeSafe = false;
         showForceOption = false;
-        statusMessage = I18n.get(LangKeys.GUI_STATUS_SEARCHING);
+        statusMessage = Component.translatable(LangKeys.GUI_STATUS_SEARCHING).getString();
         statusColor = 0xFFFF55;
         refreshWidgets();
         PacketHandler.CHANNEL.sendToServer(new PacketValidateTuner(settings));
@@ -601,20 +591,20 @@ public class GuiPortalTuner extends Screen {
     }
 
     @Override
-    public void render(MatrixStack matrixStack, int mouseX, int mouseY, float partialTicks) {
-        renderBackground(matrixStack);
-        drawCenteredString(matrixStack, font, title, width / 2, 6, 0xFFFFFF);
+    public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTicks) {
+        renderBackground(graphics);
+        graphics.drawCenteredString(font, title, width / 2, 6, 0xFFFFFF);
         String boundLine = hasExistingBinding
-                ? I18n.get(LangKeys.GUI_BOUND_CURRENT, formatBinding(originalBinding))
-                : I18n.get(LangKeys.GUI_BOUND_NONE);
-        drawCenteredString(matrixStack, font, boundLine, width / 2, 18, hasExistingBinding ? 0xFFAA00 : 0x808080);
+                ? Component.translatable(LangKeys.GUI_BOUND_CURRENT, formatBinding(originalBinding)).getString()
+                : Component.translatable(LangKeys.GUI_BOUND_NONE).getString();
+        graphics.drawCenteredString(font, boundLine, width / 2, 18, hasExistingBinding ? 0xFFAA00 : 0x808080);
         if (hasExistingBinding) {
-            drawCenteredString(matrixStack, font, I18n.get(LangKeys.GUI_BOUND_OVERWRITE_HINT), width / 2, 28, 0xFF5555);
+            graphics.drawCenteredString(font, Component.translatable(LangKeys.GUI_BOUND_OVERWRITE_HINT), width / 2, 28, 0xFF5555);
         }
 
-        fill(matrixStack, dimLeft, dimTop, dimLeft + dimW, dimTop + dimH, 0x99000000);
-        if (focus == FocusPanel.DIM) fill(matrixStack, dimLeft, dimTop, dimLeft + 2, dimTop + dimH, 0xFFFFFF55);
-        drawString(matrixStack, font, I18n.get(LangKeys.GUI_DIM_LIST), dimLeft + pad, dimTop + 2, 0xA0A0A0);
+        graphics.fill(dimLeft, dimTop, dimLeft + dimW, dimTop + dimH, 0x99000000);
+        if (focus == FocusPanel.DIM) graphics.fill(dimLeft, dimTop, dimLeft + 2, dimTop + dimH, 0xFFFFFF55);
+        graphics.drawString(font, Component.translatable(LangKeys.GUI_DIM_LIST), dimLeft + pad, dimTop + 2, 0xA0A0A0);
         int dimListTop = dimTop + 14;
         for (int i = 0; i < dimRows; i++) {
             int idx = dimScroll + i;
@@ -623,29 +613,29 @@ public class GuiPortalTuner extends Screen {
             boolean selected = e.dimKey.equals(DimUtil.normalize(settings.dimension));
             boolean hovered = idx == dimCursor;
             int y = dimListTop + i * rowH;
-            if (selected) fill(matrixStack, dimLeft + 2, y, dimLeft + dimW - 2, y + rowH, 0x33FFFF00);
-            else if (hovered && focus == FocusPanel.DIM) fill(matrixStack, dimLeft + 2, y, dimLeft + dimW - 2, y + rowH, 0x22FFFFFF);
-            drawString(matrixStack, font, localizeDimension(e.dimKey), dimLeft + pad, y + 2, selected ? 0xFFFF55 : 0xE0E0E0);
+            if (selected) graphics.fill(dimLeft + 2, y, dimLeft + dimW - 2, y + rowH, 0x33FFFF00);
+            else if (hovered && focus == FocusPanel.DIM) graphics.fill(dimLeft + 2, y, dimLeft + dimW - 2, y + rowH, 0x22FFFFFF);
+            graphics.drawString(font, localizeDimension(e.dimKey), dimLeft + pad, y + 2, selected ? 0xFFFF55 : 0xE0E0E0);
         }
 
         if (filterField.visible) {
-            filterField.render(matrixStack, mouseX, mouseY, partialTicks);
+            filterField.render(graphics, mouseX, mouseY, partialTicks);
             if (filterField.getValue().isEmpty() && !filterField.isFocused()) {
-                drawString(matrixStack, font, I18n.get(LangKeys.GUI_FILTER_HINT),
-                        filterField.x + 4, filterField.y + 5, 0x707070);
+                graphics.drawString(font, Component.translatable(LangKeys.GUI_FILTER_HINT),
+                        filterField.getX() + 4, filterField.getY() + 5, 0x707070);
             }
         }
 
-        fill(matrixStack, midLeft, contentTop, midLeft + midW, contentTop + contentH, 0x99000000);
-        if (focus == FocusPanel.CONTENT) fill(matrixStack, midLeft, contentTop, midLeft + 2, contentTop + contentH, 0xFFFFFF55);
+        graphics.fill(midLeft, contentTop, midLeft + midW, contentTop + contentH, 0x99000000);
+        if (focus == FocusPanel.CONTENT) graphics.fill(midLeft, contentTop, midLeft + 2, contentTop + contentH, 0xFFFFFF55);
 
         if (settings.mode == DestinationSettings.Mode.COORDS) {
-            drawString(matrixStack, font, "X", fieldX.x - 12, fieldX.y + 5, 0xFFFFFF);
-            drawString(matrixStack, font, "Y", fieldY.x - 12, fieldY.y + 5, 0xFFFFFF);
-            drawString(matrixStack, font, "Z", fieldZ.x - 12, fieldZ.y + 5, 0xFFFFFF);
-            fieldX.render(matrixStack, mouseX, mouseY, partialTicks);
-            fieldY.render(matrixStack, mouseX, mouseY, partialTicks);
-            fieldZ.render(matrixStack, mouseX, mouseY, partialTicks);
+            graphics.drawString(font, "X", fieldX.getX() - 12, fieldX.getY() + 5, 0xFFFFFF);
+            graphics.drawString(font, "Y", fieldY.getX() - 12, fieldY.getY() + 5, 0xFFFFFF);
+            graphics.drawString(font, "Z", fieldZ.getX() - 12, fieldZ.getY() + 5, 0xFFFFFF);
+            fieldX.render(graphics, mouseX, mouseY, partialTicks);
+            fieldY.render(graphics, mouseX, mouseY, partialTicks);
+            fieldZ.render(graphics, mouseX, mouseY, partialTicks);
         } else {
             for (int i = 0; i < contentRows; i++) {
                 int idx = contentScroll + i;
@@ -655,24 +645,24 @@ public class GuiPortalTuner extends Screen {
                         : contentStructureIds.get(idx).equals(settings.structureName);
                 boolean hovered = idx == contentCursor;
                 int y = contentTop + pad + i * rowH;
-                if (selected) fill(matrixStack, midLeft + 2, y, midLeft + midW - 2, y + rowH, 0x33FFFF00);
-                else if (hovered && focus == FocusPanel.CONTENT) fill(matrixStack, midLeft + 2, y, midLeft + midW - 2, y + rowH, 0x22FFFFFF);
-                drawString(matrixStack, font, contentLabels.get(idx), midLeft + pad, y + 2, selected ? 0xFFFF55 : 0xE0E0E0);
+                if (selected) graphics.fill(midLeft + 2, y, midLeft + midW - 2, y + rowH, 0x33FFFF00);
+                else if (hovered && focus == FocusPanel.CONTENT) graphics.fill(midLeft + 2, y, midLeft + midW - 2, y + rowH, 0x22FFFFFF);
+                graphics.drawString(font, contentLabels.get(idx), midLeft + pad, y + 2, selected ? 0xFFFF55 : 0xE0E0E0);
             }
         }
 
-        fill(matrixStack, rightLeft, infoTop, rightLeft + rightW, rightTop + rightH, 0x66000000);
+        graphics.fill(rightLeft, infoTop, rightLeft + rightW, rightTop + rightH, 0x66000000);
         int iy = infoTop + 4;
-        drawString(matrixStack, font,
-                I18n.get(LangKeys.GUI_STATUS, localizeDimension(settings.dimension), localizeMode(settings.mode)),
+        graphics.drawString(font,
+                Component.translatable(LangKeys.GUI_STATUS, localizeDimension(settings.dimension), localizeMode(settings.mode)),
                 rightLeft + 4, iy, 0xA0A0A0);
         iy += 14;
-        for (net.minecraft.util.text.ITextProperties line : font.getSplitter().splitLines(new StringTextComponent(statusMessage), rightW - 8, net.minecraft.util.text.Style.EMPTY)) {
-            drawString(matrixStack, font, line.getString(), rightLeft + 4, iy, statusColor);
+        for (FormattedCharSequence line : font.split(Component.literal(statusMessage), rightW - 8)) {
+            graphics.drawString(font, line, rightLeft + 4, iy, statusColor);
             iy += 12;
         }
 
-        super.render(matrixStack, mouseX, mouseY, partialTicks);
+        super.render(graphics, mouseX, mouseY, partialTicks);
     }
 
     @Override

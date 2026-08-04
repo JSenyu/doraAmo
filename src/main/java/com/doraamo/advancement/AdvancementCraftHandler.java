@@ -3,10 +3,10 @@ package com.doraamo.advancement;
 import com.doraamo.DoraAmo;
 import com.doraamo.item.ModItems;
 import net.minecraft.advancements.Advancement;
-import net.minecraft.advancements.PlayerAdvancements;
-import net.minecraft.entity.player.ServerPlayerEntity;
-import net.minecraft.item.Item;
-import net.minecraft.util.ResourceLocation;
+import net.minecraft.server.PlayerAdvancements;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.item.Item;
 import net.minecraftforge.event.entity.player.PlayerEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
@@ -19,10 +19,9 @@ public final class AdvancementCraftHandler {
 
     @SubscribeEvent
     public static void onItemCrafted(PlayerEvent.ItemCraftedEvent event) {
-        if (!(event.getPlayer() instanceof ServerPlayerEntity)) {
+        if (!(event.getEntity() instanceof ServerPlayer player)) {
             return;
         }
-        ServerPlayerEntity player = (ServerPlayerEntity) event.getPlayer();
         Item item = event.getCrafting().getItem();
         if (item == ModItems.PORTAL_DOOR.get()) {
             grant(player, "anydoor", "crafted");
@@ -31,7 +30,7 @@ public final class AdvancementCraftHandler {
         }
     }
 
-    private static void grant(ServerPlayerEntity player, String path, String criterion) {
+    private static void grant(ServerPlayer player, String path, String criterion) {
         if (player.getServer() == null) {
             return;
         }

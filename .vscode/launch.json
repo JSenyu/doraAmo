@@ -1,0 +1,101 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "java",
+      "request": "launch",
+      "name": "Client",
+      "presentation": {
+        "group": "Mod Development - doraAmo",
+        "order": 0
+      },
+      "projectName": "doraAmo",
+      "mainClass": "net.neoforged.devlaunch.Main",
+      "args": [
+        "@G:\\ITEM_MOD\\doraAmo\\build\\moddev\\clientRunProgramArgs.txt"
+      ],
+      "vmArgs": [
+        "@G:\\ITEM_MOD\\doraAmo\\build\\moddev\\clientRunVmArgs.txt",
+        "-Dfml.modFolders\u003ddoraamo%%G:\\ITEM_MOD\\doraAmo\\bin\\main"
+      ],
+      "cwd": "${workspaceFolder}\\run",
+      "env": {
+        "MOD_CLASSES": "doraamo%%G:\\ITEM_MOD\\doraAmo\\bin\\main"
+      },
+      "console": "internalConsole",
+      "shortenCommandLine": "none"
+    },
+    {
+      "type": "java",
+      "request": "launch",
+      "name": "Data",
+      "presentation": {
+        "group": "Mod Development - doraAmo",
+        "order": 1
+      },
+      "projectName": "doraAmo",
+      "mainClass": "net.neoforged.devlaunch.Main",
+      "args": [
+        "@G:\\ITEM_MOD\\doraAmo\\build\\moddev\\dataRunProgramArgs.txt"
+      ],
+      "vmArgs": [
+        "@G:\\ITEM_MOD\\doraAmo\\build\\moddev\\dataRunVmArgs.txt",
+        "-Dfml.modFolders\u003ddoraamo%%G:\\ITEM_MOD\\doraAmo\\bin\\main"
+      ],
+      "cwd": "${workspaceFolder}\\run",
+      "env": {
+        "MOD_CLASSES": "doraamo%%G:\\ITEM_MOD\\doraAmo\\bin\\main"
+      },
+      "console": "internalConsole",
+      "shortenCommandLine": "none"
+    },
+    {
+      "type": "java",
+      "request": "launch",
+      "name": "GameTestServer",
+      "presentation": {
+        "group": "Mod Development - doraAmo",
+        "order": 2
+      },
+      "projectName": "doraAmo",
+      "mainClass": "net.neoforged.devlaunch.Main",
+      "args": [
+        "@G:\\ITEM_MOD\\doraAmo\\build\\moddev\\gameTestServerRunProgramArgs.txt"
+      ],
+      "vmArgs": [
+        "@G:\\ITEM_MOD\\doraAmo\\build\\moddev\\gameTestServerRunVmArgs.txt",
+        "-Dfml.modFolders\u003ddoraamo%%G:\\ITEM_MOD\\doraAmo\\bin\\main"
+      ],
+      "cwd": "${workspaceFolder}\\run",
+      "env": {
+        "MOD_CLASSES": "doraamo%%G:\\ITEM_MOD\\doraAmo\\bin\\main"
+      },
+      "console": "internalConsole",
+      "shortenCommandLine": "none"
+    },
+    {
+      "type": "java",
+      "request": "launch",
+      "name": "Server",
+      "presentation": {
+        "group": "Mod Development - doraAmo",
+        "order": 3
+      },
+      "projectName": "doraAmo",
+      "mainClass": "net.neoforged.devlaunch.Main",
+      "args": [
+        "@G:\\ITEM_MOD\\doraAmo\\build\\moddev\\serverRunProgramArgs.txt"
+      ],
+      "vmArgs": [
+        "@G:\\ITEM_MOD\\doraAmo\\build\\moddev\\serverRunVmArgs.txt",
+        "-Dfml.modFolders\u003ddoraamo%%G:\\ITEM_MOD\\doraAmo\\bin\\main"
+      ],
+      "cwd": "${workspaceFolder}\\run",
+      "env": {
+        "MOD_CLASSES": "doraamo%%G:\\ITEM_MOD\\doraAmo\\bin\\main"
+      },
+      "console": "internalConsole",
+      "shortenCommandLine": "none"
+    }
+  ]
+}

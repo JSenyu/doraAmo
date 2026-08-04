@@ -4,10 +4,8 @@ import com.doraamo.DoraAmo;
 import com.doraamo.config.catalog.DisplayCatalog;
 import com.doraamo.util.DimUtil;
 import com.doraamo.util.LangKeys;
+import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.util.text.ITextComponent;
-import net.minecraft.util.text.StringTextComponent;
-import net.minecraft.util.text.TranslationTextComponent;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
@@ -155,11 +153,11 @@ public final class DimensionConfig {
         return null;
     }
 
-    public static ITextComponent getDisplayComponent(String dimensionKey) {
+    public static Component getDisplayComponent(String dimensionKey) {
         if (DimUtil.isBlank(dimensionKey)) {
-            return new TranslationTextComponent(LangKeys.DIMENSION_BLANK);
+            return Component.translatable(LangKeys.DIMENSION_BLANK);
         }
-        return new StringTextComponent(DisplayCatalog.displayDimension(dimensionKey));
+        return Component.literal(DisplayCatalog.displayDimension(dimensionKey));
     }
 
     public static String getLangKey(String dimensionKey) {

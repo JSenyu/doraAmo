@@ -4,12 +4,12 @@ import com.doraamo.destination.DestinationLocator;
 import com.doraamo.destination.DestinationSettings;
 import com.doraamo.portal.PortalDoorPlacer;
 import com.doraamo.util.DimUtil;
-import net.minecraftforge.fml.network.PacketDistributor;
-import net.minecraft.entity.player.ServerPlayerEntity;
-import net.minecraft.network.PacketBuffer;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.world.server.ServerWorld;
-import net.minecraftforge.fml.network.NetworkEvent;
+import net.minecraft.core.BlockPos;
+import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraftforge.network.NetworkEvent;
+import net.minecraftforge.network.PacketDistributor;
 
 import java.util.function.Supplier;
 
@@ -24,7 +24,7 @@ public class PacketValidateTuner {
         this.settings = settings;
     }
 
-    public static void encode(PacketValidateTuner msg, PacketBuffer buf) {
+    public static void encode(PacketValidateTuner msg, FriendlyByteBuf buf) {
         buf.writeUtf(msg.settings.dimension == null ? "" : msg.settings.dimension);
         buf.writeEnum(msg.settings.mode);
         buf.writeUtf(msg.settings.biomeKey == null ? "minecraft:plains" : msg.settings.biomeKey);
@@ -34,12 +34,12 @@ public class PacketValidateTuner {
         buf.writeInt(msg.settings.z);
     }
 
-    public static PacketValidateTuner decode(PacketBuffer buf) {
+    public static PacketValidateTuner decode(FriendlyByteBuf buf) {
         PacketValidateTuner msg = new PacketValidateTuner();
-        msg.settings.dimension = DimUtil.normalize(buf.readUtf(32767));
+        msg.settings.dimension = DimUtil.normalize(buf.readUtf());
         msg.settings.mode = buf.readEnum(DestinationSettings.Mode.class);
-        msg.settings.biomeKey = buf.readUtf(32767);
-        msg.settings.structureName = buf.readUtf(32767);
+        msg.settings.biomeKey = buf.readUtf();
+        msg.settings.structureName = buf.readUtf();
         msg.settings.x = buf.readInt();
         msg.settings.y = buf.readInt();
         msg.settings.z = buf.readInt();
@@ -48,19 +48,19 @@ public class PacketValidateTuner {
 
     public static void handle(PacketValidateTuner msg, Supplier<NetworkEvent.Context> ctx) {
         ctx.get().enqueueWork(() -> {
-            ServerPlayerEntity player = ctx.get().getSender();
+            ServerPlayer player = ctx.get().getSender();
             if (player == null) {
                 return;
             }
             DestinationSettings s = msg.settings;
-            ServerWorld world = DimUtil.getLevel(player.getServer(), s.dimension);
+            ServerLevel world = DimUtil.getLevel(player.getServer(), s.dimension);
             if (world == null) {
                 PacketHandler.CHANNEL.send(PacketDistributor.PLAYER.with(() -> player), PacketValidateResult.notFound());
                 return;
             }
             BlockPos near = player.blockPosition();
-            if (!player.level.dimension().location().toString().equals(s.dimension)) {
-                double scale = DimUtil.coordinateScale(player.level) / DimUtil.coordinateScale(world);
+            if (!player.level().dimension().location().toString().equals(s.dimension)) {
+                double scale = DimUtil.coordinateScale(player.level()) / DimUtil.coordinateScale(world);
                 int y = (int) player.getY();
                 if (DimUtil.isNether(s.dimension)) {
                     y = Math.max(32, Math.min(120, y));

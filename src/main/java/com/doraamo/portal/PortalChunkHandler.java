@@ -1,8 +1,8 @@
 package com.doraamo.portal;
 
-import net.minecraft.util.math.ChunkPos;
-import net.minecraft.world.World;
-import net.minecraftforge.event.world.ChunkEvent;
+import net.minecraft.world.level.ChunkPos;
+import net.minecraft.world.level.Level;
+import net.minecraftforge.event.level.ChunkEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 
@@ -11,11 +11,10 @@ public class PortalChunkHandler {
 
     @SubscribeEvent
     public static void onChunkLoad(ChunkEvent.Load event) {
-        if (!(event.getWorld() instanceof World)) {
+        if (!(event.getLevel() instanceof Level world)) {
             return;
         }
-        World world = (World) event.getWorld();
-        if (world.isClientSide) {
+        if (world.isClientSide()) {
             return;
         }
         PortalNetworkData data = PortalNetworkData.get();
