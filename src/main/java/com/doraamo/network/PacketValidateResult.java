@@ -1,12 +1,9 @@
 package com.doraamo.network;
 
-import com.doraamo.client.GuiPortalTuner;
+import com.doraamo.client.ClientHooks;
 import com.doraamo.portal.PortalDoorPlacer;
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.network.PacketBuffer;
 import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.api.distmarker.OnlyIn;
 import net.minecraftforge.fml.DistExecutor;
 import net.minecraftforge.fml.network.NetworkEvent;
 
@@ -54,20 +51,8 @@ public class PacketValidateResult {
     }
 
     public static void handle(PacketValidateResult msg, Supplier<NetworkEvent.Context> ctx) {
-        ctx.get().enqueueWork(() -> DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> () -> handleClient(msg)));
+        ctx.get().enqueueWork(() -> DistExecutor.safeRunWhenOn(Dist.CLIENT, () -> () ->
+                ClientHooks.handleValidateResult(msg.found, msg.x, msg.y, msg.z, msg.hazardOrdinal)));
         ctx.get().setPacketHandled(true);
-    }
-
-    @OnlyIn(Dist.CLIENT)
-    private static void handleClient(PacketValidateResult message) {
-        Screen screen = Minecraft.getInstance().screen;
-        if (screen instanceof GuiPortalTuner) {
-            PortalDoorPlacer.PlaceHazard[] values = PortalDoorPlacer.PlaceHazard.values();
-            PortalDoorPlacer.PlaceHazard hazard = message.hazardOrdinal < values.length
-                    ? values[message.hazardOrdinal]
-                    : PortalDoorPlacer.PlaceHazard.WALL;
-            ((GuiPortalTuner) screen).onValidateResult(
-                    message.found, message.x, message.y, message.z, hazard);
-        }
     }
 }

@@ -2,13 +2,11 @@ package com.doraamo.item;
 
 import com.doraamo.block.BlockPortalDoor;
 import com.doraamo.block.ModBlocks;
-import com.doraamo.client.GuiPortalTuner;
+import com.doraamo.client.ClientHooks;
 import com.doraamo.destination.DestinationSettings;
 import com.doraamo.portal.PortalFinder;
 import com.doraamo.tileentity.TileEntityPortalDoor;
-import com.doraamo.util.DimUtil;
 import com.doraamo.util.LangKeys;
-import net.minecraft.client.Minecraft;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
@@ -83,15 +81,14 @@ public class ItemPortalTuner extends Item {
                 draft.z = (int) Math.floor(player.getZ());
                 draft.dimension = player.level.dimension().location().toString();
             }
-            openGui(hand, stack, base, draft, bound != null);
+            final Hand openHand = hand;
+            final DestinationSettings openDraft = draft;
+            final BlockPos openPos = base;
+            final boolean hasBinding = bound != null;
+            DistExecutor.safeRunWhenOn(Dist.CLIENT, () -> () ->
+                    ClientHooks.openTunerGui(openHand, openDraft, openPos, hasBinding));
         }
         return ActionResultType.SUCCESS;
-    }
-
-    private static void openGui(Hand hand, ItemStack stack, BlockPos portalPos,
-                                DestinationSettings draft, boolean hasExistingBinding) {
-        DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> () ->
-                Minecraft.getInstance().setScreen(new GuiPortalTuner(hand, draft, portalPos, hasExistingBinding)));
     }
 
     @Override
