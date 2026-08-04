@@ -2,9 +2,7 @@
 
 [中文](README.md) | [English](README_EN.md)
 
-> **目标平台：Minecraft 1.16.5 · Forge。本分支移植进行中，当前内容仍为 1.12.2 Forge 基线，尚不可当作 1.16.5 版本游玩。**
-
-目标为 Minecraft 1.16.5（Forge）的传送门模组（移植中）。
+适用于 Minecraft 1.16.5（Forge）的传送门模组。
 
 添加了在末地城之后的玩法，提高后期移动的便捷性，可以通过任意门传送到指定的任意地点。
 
@@ -17,7 +15,7 @@
 | 分支 | 平台 | 状态 |
 |------|------|------|
 | [1.12.2-forge](https://github.com/JSenyu/doraAmo/tree/1.12.2-forge) | Minecraft 1.12.2 · Forge | 可用 |
-| [1.16.5-forge](https://github.com/JSenyu/doraAmo/tree/1.16.5-forge) | Minecraft 1.16.5 · Forge | 移植中 |
+| [1.16.5-forge](https://github.com/JSenyu/doraAmo/tree/1.16.5-forge) | Minecraft 1.16.5 · Forge | 可用 |
 | [1.20.1-neoforge](https://github.com/JSenyu/doraAmo/tree/1.20.1-neoforge) | Minecraft 1.20.1 · NeoForge | 移植中 |
 | [1.20.1-fabric](https://github.com/JSenyu/doraAmo/tree/1.20.1-fabric) | Minecraft 1.20.1 · Fabric | 移植中 |
 | [1.21.1-neoforge](https://github.com/JSenyu/doraAmo/tree/1.21.1-neoforge) | Minecraft 1.21.1 · NeoForge | 移植中 |

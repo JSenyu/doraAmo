@@ -1,8 +1,8 @@
 {
   "parent": "block/cube_bottom_top",
   "textures": {
-    "bottom": "doraamo:blocks/obsidian_turf_top",
-    "top": "doraamo:blocks/obsidian_turf_top",
-    "side": "doraamo:blocks/obsidian_turf_side"
+    "bottom": "doraamo:block/obsidian_turf_top",
+    "top": "doraamo:block/obsidian_turf_top",
+    "side": "doraamo:block/obsidian_turf_side"
   }
 }

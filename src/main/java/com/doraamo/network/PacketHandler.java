@@ -1,14 +1,18 @@
 package com.doraamo.network;
 
 import com.doraamo.DoraAmo;
-import net.minecraftforge.fml.common.network.NetworkRegistry;
-import net.minecraftforge.fml.common.network.simpleimpl.SimpleNetworkWrapper;
-import net.minecraftforge.fml.relauncher.Side;
+import net.minecraft.util.ResourceLocation;
+import net.minecraftforge.fml.network.NetworkRegistry;
+import net.minecraftforge.fml.network.simple.SimpleChannel;
 
 public final class PacketHandler {
 
-    public static final SimpleNetworkWrapper CHANNEL =
-            NetworkRegistry.INSTANCE.newSimpleChannel(DoraAmo.MODID);
+    private static final String PROTOCOL = "1";
+    public static final SimpleChannel CHANNEL = NetworkRegistry.newSimpleChannel(
+            new ResourceLocation(DoraAmo.MODID, "main"),
+            () -> PROTOCOL,
+            PROTOCOL::equals,
+            PROTOCOL::equals);
 
     private static int id;
 
@@ -16,8 +20,8 @@ public final class PacketHandler {
     }
 
     public static void init() {
-        CHANNEL.registerMessage(PacketSaveTuner.Handler.class, PacketSaveTuner.class, id++, Side.SERVER);
-        CHANNEL.registerMessage(PacketValidateTuner.Handler.class, PacketValidateTuner.class, id++, Side.SERVER);
-        CHANNEL.registerMessage(PacketValidateResult.Handler.class, PacketValidateResult.class, id++, Side.CLIENT);
+        CHANNEL.registerMessage(id++, PacketSaveTuner.class, PacketSaveTuner::encode, PacketSaveTuner::decode, PacketSaveTuner::handle);
+        CHANNEL.registerMessage(id++, PacketValidateTuner.class, PacketValidateTuner::encode, PacketValidateTuner::decode, PacketValidateTuner::handle);
+        CHANNEL.registerMessage(id++, PacketValidateResult.class, PacketValidateResult::encode, PacketValidateResult::decode, PacketValidateResult::handle);
     }
 }

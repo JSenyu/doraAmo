@@ -1,27 +1,24 @@
 package com.doraamo.destination;
 
 import com.doraamo.portal.ChunkPrep;
+import com.doraamo.util.DimUtil;
 import net.minecraft.block.Block;
-import net.minecraft.block.material.Material;
-import net.minecraft.block.state.IBlockState;
-import net.minecraft.init.Biomes;
-import net.minecraft.init.Blocks;
-import net.minecraft.util.EnumFacing;
+import net.minecraft.block.BlockState;
+import net.minecraft.block.Blocks;
+import net.minecraft.util.Direction;
+import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.MathHelper;
-import net.minecraft.world.World;
-import net.minecraft.world.WorldServer;
 import net.minecraft.world.biome.Biome;
-import net.minecraft.world.chunk.IChunkProvider;
-import net.minecraft.world.gen.ChunkProviderServer;
-import net.minecraft.world.gen.IChunkGenerator;
-import net.minecraftforge.fml.common.registry.ForgeRegistries;
+import net.minecraft.world.gen.feature.structure.Structure;
+import net.minecraft.world.gen.feature.structure.StructureStart;
+import net.minecraft.world.server.ServerWorld;
+import net.minecraftforge.registries.ForgeRegistries;
 
 import javax.annotation.Nullable;
-import java.lang.reflect.Field;
-import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Random;
@@ -35,19 +32,19 @@ public final class DestinationLocator {
     public static final List<String> STRUCTURES_NETHER = Arrays.asList("Fortress");
     public static final List<String> STRUCTURES_END = Arrays.asList("EndCity");
 
-    private static final Set<String> UNDERGROUND = new HashSet<String>(Arrays.asList(
+    private static final Set<String> UNDERGROUND = new HashSet<>(Arrays.asList(
             "Mineshaft", "Stronghold", "Fortress", "Temple"
     ));
-    private static final Set<String> WATER_OR_FLOAT = new HashSet<String>(Arrays.asList(
+    private static final Set<String> WATER_OR_FLOAT = new HashSet<>(Arrays.asList(
             "Monument", "EndCity"
     ));
 
-    private static final Set<Block> STRUCTURE_FLOORS = new HashSet<Block>(Arrays.asList(
-            Blocks.NETHER_BRICK, Blocks.NETHER_BRICK_FENCE, Blocks.NETHER_BRICK_STAIRS,
-            Blocks.STONEBRICK, Blocks.STONE_BRICK_STAIRS, Blocks.MOSSY_COBBLESTONE,
-            Blocks.COBBLESTONE, Blocks.PLANKS, Blocks.BRICK_BLOCK,
+    private static final Set<Block> STRUCTURE_FLOORS = new HashSet<>(Arrays.asList(
+            Blocks.NETHER_BRICKS, Blocks.NETHER_BRICK_FENCE, Blocks.NETHER_BRICK_STAIRS,
+            Blocks.STONE_BRICKS, Blocks.STONE_BRICK_STAIRS, Blocks.MOSSY_COBBLESTONE,
+            Blocks.COBBLESTONE, Blocks.OAK_PLANKS, Blocks.BRICKS,
             Blocks.PURPUR_BLOCK, Blocks.PURPUR_PILLAR, Blocks.PURPUR_STAIRS,
-            Blocks.END_STONE, Blocks.END_BRICKS, Blocks.PRISMARINE, Blocks.SEA_LANTERN,
+            Blocks.END_STONE, Blocks.END_STONE_BRICKS, Blocks.PRISMARINE, Blocks.SEA_LANTERN,
             Blocks.SANDSTONE, Blocks.RED_SANDSTONE
     ));
 
@@ -73,11 +70,11 @@ public final class DestinationLocator {
     private DestinationLocator() {
     }
 
-    public static List<String> structuresForDim(int dim) {
-        if (dim == -1) {
+    public static List<String> structuresForDim(String dim) {
+        if (DimUtil.isNether(dim)) {
             return STRUCTURES_NETHER;
         }
-        if (dim == 1) {
+        if (DimUtil.isEnd(dim)) {
             return STRUCTURES_END;
         }
         return STRUCTURES_OVERWORLD;
@@ -91,7 +88,7 @@ public final class DestinationLocator {
         return WATER_OR_FLOAT.contains(name);
     }
 
-    public static BlockPos resolve(WorldServer world, BlockPos scaledPortalPos, DestinationSettings settings) {
+    public static BlockPos resolve(ServerWorld world, BlockPos scaledPortalPos, DestinationSettings settings) {
         if (settings == null) {
             return scaledPortalPos;
         }
@@ -99,7 +96,7 @@ public final class DestinationLocator {
             case COORDS:
                 return settings.getCoordPos();
             case BIOME: {
-                BlockPos found = findBiomeStrict(world, scaledPortalPos, settings.biomeId);
+                BlockPos found = findBiomeStrict(world, scaledPortalPos, settings.biomeKey);
                 return found != null ? found : scaledPortalPos;
             }
             case STRUCTURE: {
@@ -112,21 +109,21 @@ public final class DestinationLocator {
         }
     }
 
-    public static ValidateResult validate(WorldServer world, BlockPos near, DestinationSettings settings) {
+    public static ValidateResult validate(ServerWorld world, BlockPos near, DestinationSettings settings) {
         if (settings == null || world == null) {
             return ValidateResult.fail();
         }
         switch (settings.mode) {
             case COORDS: {
                 BlockPos p = settings.getCoordPos();
-                if (p.getY() < 0 || p.getY() >= world.getHeight() - 1) {
+                if (p.getY() < 0 || p.getY() >= world.getMaxBuildHeight() - 1) {
                     return ValidateResult.fail();
                 }
                 ChunkPrep.forcePopulateAround(world, p, 1);
                 return ValidateResult.ok(p);
             }
             case BIOME: {
-                BlockPos found = findBiomeStrict(world, near, settings.biomeId);
+                BlockPos found = findBiomeStrict(world, near, settings.biomeKey);
                 return found != null ? ValidateResult.ok(found) : ValidateResult.fail();
             }
             case STRUCTURE: {
@@ -140,59 +137,49 @@ public final class DestinationLocator {
     }
 
     @Nullable
-    private static BlockPos findBiomeStrict(WorldServer world, BlockPos near, int biomeId) {
-        Biome target = Biome.getBiome(biomeId);
+    private static BlockPos findBiomeStrict(ServerWorld world, BlockPos near, String biomeKey) {
+        ResourceLocation key = new ResourceLocation(biomeKey.contains(":") ? biomeKey : "minecraft:" + biomeKey);
+        Biome target = ForgeRegistries.BIOMES.getValue(key);
         if (target == null) {
-            target = Biomes.PLAINS;
+            target = ForgeRegistries.BIOMES.getValue(new ResourceLocation("minecraft:plains"));
         }
-        List<Biome> list = new ArrayList<Biome>();
-        list.add(target);
-        BlockPos found = world.getBiomeProvider().findBiomePosition(
-                near.getX(), near.getZ(), 640, list, new Random(near.toLong()));
+        final Biome biomeTarget = target;
+        BlockPos found = world.findNearestBiome(biomeTarget, near, 640, 8);
         if (found == null) {
-            found = world.getBiomeProvider().findBiomePosition(
-                    near.getX(), near.getZ(), 2560, list, new Random(near.toLong() ^ 31L));
+            found = world.findNearestBiome(biomeTarget, near, 2560, 8);
         }
         if (found == null) {
             return null;
         }
         ChunkPrep.forcePopulateAround(world, found, 1);
-        int y = world.getHeight(found).getY();
+        int y = world.getHeightmapPos(net.minecraft.world.gen.Heightmap.Type.MOTION_BLOCKING_NO_LEAVES, found).getY();
         return new BlockPos(found.getX(), Math.max(1, y), found.getZ());
     }
 
     @Nullable
-    private static BlockPos findStructureStrict(WorldServer world, BlockPos near, String name) {
-        BlockPos origin = invokeNearestStructure(world, name, near);
+    private static BlockPos findStructureStrict(ServerWorld world, BlockPos near, String name) {
+        BlockPos origin = findNearestStructure(world, name, near);
         if (origin == null) {
             return null;
         }
         ChunkPrep.forcePopulateAround(world, origin, 3);
 
         if (isUndergroundStructure(name)) {
-            BlockPos interior = findInteriorLanding(world, origin, name);
-            return interior;
+            return findInteriorLanding(world, origin, name);
         }
         if (isWaterOrFloatStructure(name)) {
-            BlockPos air = findAirLanding(world, origin);
-            return air != null ? air : null;
+            return findAirLanding(world, origin);
         }
-        int y = world.getHeight(origin).getY();
+        int y = world.getHeightmapPos(net.minecraft.world.gen.Heightmap.Type.MOTION_BLOCKING_NO_LEAVES, origin).getY();
         return new BlockPos(origin.getX(), Math.max(1, y), origin.getZ());
     }
 
-    /**
-     * Prefer standable spots that are actually inside the structure bounding volume,
-     * with structure-material floors — not nearby caves.
-     */
     @Nullable
-    private static BlockPos findInteriorLanding(WorldServer world, BlockPos origin, String name) {
-        int minY = world.provider.getDimension() == -1 ? 32 : 5;
-        int maxY = world.provider.getDimension() == -1
-                ? 120
-                : Math.min(world.getActualHeight() - 3, 120);
-        int preferY = origin.getY() > 5 ? MathHelper.clamp(origin.getY(), minY, maxY)
-                : (world.provider.getDimension() == -1 ? 64 : 40);
+    private static BlockPos findInteriorLanding(ServerWorld world, BlockPos origin, String name) {
+        boolean nether = DimUtil.isNether(DimUtil.levelKey(world));
+        int minY = nether ? 32 : 5;
+        int maxY = nether ? 120 : Math.min(world.getMaxBuildHeight() - 3, 120);
+        int preferY = origin.getY() > 5 ? MathHelper.clamp(origin.getY(), minY, maxY) : (nether ? 64 : 40);
 
         BlockPos bestInside = null;
         BlockPos bestInsideStructFloor = null;
@@ -224,8 +211,8 @@ public final class DestinationLocator {
                             } else if (!hasCover(world, feet)) {
                                 continue;
                             }
-                            double dist = feet.distanceSq(origin);
-                            if (isStructureFloor(world, feet.down())) {
+                            double dist = feet.distSqr(origin);
+                            if (isStructureFloor(world, feet.below())) {
                                 if (dist < bestFloorDist) {
                                     bestFloorDist = dist;
                                     bestInsideStructFloor = feet;
@@ -249,9 +236,9 @@ public final class DestinationLocator {
     }
 
     @Nullable
-    private static BlockPos findAirLanding(WorldServer world, BlockPos origin) {
+    private static BlockPos findAirLanding(ServerWorld world, BlockPos origin) {
         int minY = 1;
-        int maxY = Math.min(world.getActualHeight() - 3, 200);
+        int maxY = Math.min(world.getMaxBuildHeight() - 3, 200);
         int preferY = MathHelper.clamp(origin.getY() > 0 ? origin.getY() : 64, minY, maxY);
 
         BlockPos bestSolid = null;
@@ -277,7 +264,7 @@ public final class DestinationLocator {
                             if (!isTwoHighAir(world, feet)) {
                                 continue;
                             }
-                            double dist = feet.distanceSq(origin);
+                            double dist = feet.distSqr(origin);
                             if (hasSolidFloor(world, feet)) {
                                 if (dist < bestSolidDist) {
                                     bestSolidDist = dist;
@@ -298,206 +285,89 @@ public final class DestinationLocator {
         return bestSolid != null ? bestSolid : bestAir;
     }
 
-    private static boolean hasCover(WorldServer world, BlockPos feet) {
-        BlockPos above = feet.up(3);
-        IBlockState ceiling = world.getBlockState(above);
-        return ceiling.getMaterial().blocksMovement() || !world.canBlockSeeSky(feet);
+    private static boolean hasCover(ServerWorld world, BlockPos feet) {
+        BlockPos above = feet.above(3);
+        BlockState ceiling = world.getBlockState(above);
+        return ceiling.getMaterial().blocksMotion() || !world.canSeeSky(feet);
     }
 
-    private static boolean isStructureFloor(WorldServer world, BlockPos ground) {
+    private static boolean isStructureFloor(ServerWorld world, BlockPos ground) {
         return STRUCTURE_FLOORS.contains(world.getBlockState(ground).getBlock());
     }
 
-    private static boolean isTwoHighAir(WorldServer world, BlockPos feet) {
-        IBlockState a = world.getBlockState(feet);
-        IBlockState b = world.getBlockState(feet.up());
-        if (a.getMaterial().blocksMovement() || b.getMaterial().blocksMovement()) {
+    private static boolean isTwoHighAir(ServerWorld world, BlockPos feet) {
+        BlockState a = world.getBlockState(feet);
+        BlockState b = world.getBlockState(feet.above());
+        if (a.getMaterial().blocksMotion() || b.getMaterial().blocksMotion()) {
             return false;
         }
         if (a.getMaterial().isLiquid() || b.getMaterial().isLiquid()) {
             return false;
         }
-        return a.getBlock().isAir(a, world, feet) || a.getBlock().isReplaceable(world, feet);
+        return a.isAir(world, feet) || a.getMaterial().isReplaceable();
     }
 
-    private static boolean hasSolidFloor(WorldServer world, BlockPos feet) {
-        BlockPos ground = feet.down();
-        IBlockState g = world.getBlockState(ground);
-        return g.isSideSolid(world, ground, EnumFacing.UP) && !g.getMaterial().isLiquid();
+    private static boolean hasSolidFloor(ServerWorld world, BlockPos feet) {
+        BlockPos ground = feet.below();
+        BlockState g = world.getBlockState(ground);
+        return g.isFaceSturdy(world, ground, Direction.UP) && !g.getMaterial().isLiquid();
     }
 
-    private static boolean canQueryStructure(WorldServer world, String name) {
-        return getChunkGenerator(world) != null;
+    private static boolean canQueryStructure(ServerWorld world, String name) {
+        return structureForName(name) != null;
     }
 
-    private static boolean isPositionInStructure(WorldServer world, String name, BlockPos pos) {
-        IChunkGenerator gen = getChunkGenerator(world);
-        if (gen == null) {
+    private static boolean isPositionInStructure(ServerWorld world, String name, BlockPos pos) {
+        BlockPos origin = findNearestStructure(world, name, pos);
+        if (origin == null) {
             return false;
         }
-        try {
-            Method m = findMethod(gen.getClass(), "isInsideStructure",
-                    World.class, String.class, BlockPos.class);
-            if (m != null) {
-                m.setAccessible(true);
-                Object r = m.invoke(gen, world, name, pos);
-                return r instanceof Boolean && (Boolean) r;
-            }
-        } catch (Exception ignored) {
-        }
-        Object structureGen = getStructureGenerator(world, name);
-        if (structureGen == null) {
-            return false;
-        }
-        try {
-            Method m = findMethod(structureGen.getClass(), "isPositionInStructure", World.class, BlockPos.class);
-            if (m == null) {
-                m = findMethod(structureGen.getClass(), "isInsideStructure", BlockPos.class);
-                if (m != null) {
-                    m.setAccessible(true);
-                    Object r = m.invoke(structureGen, pos);
-                    return r instanceof Boolean && (Boolean) r;
-                }
-                return false;
-            }
-            m.setAccessible(true);
-            Object r = m.invoke(structureGen, world, pos);
-            return r instanceof Boolean && (Boolean) r;
-        } catch (Exception e) {
-            return false;
-        }
+        return pos.distSqr(origin) < 48 * 48;
     }
 
     @Nullable
-    private static IChunkGenerator getChunkGenerator(WorldServer world) {
-        IChunkProvider provider = world.getChunkProvider();
-        if (provider instanceof ChunkProviderServer) {
-            return ((ChunkProviderServer) provider).chunkGenerator;
-        }
-        return null;
-    }
-
-    @Nullable
-    private static Object getStructureGenerator(WorldServer world, String name) {
-        try {
-            IChunkGenerator chunkGen = getChunkGenerator(world);
-            if (chunkGen == null) {
-                return null;
-            }
-            String[] fieldNames;
-            if ("Fortress".equals(name)) {
-                fieldNames = new String[] { "genNetherBridge", "field_185953_o" };
-            } else if ("Stronghold".equals(name)) {
-                fieldNames = new String[] { "strongholdGenerator", "field_186004_w" };
-            } else if ("Mineshaft".equals(name)) {
-                fieldNames = new String[] { "mineshaftGenerator", "field_186005_x" };
-            } else if ("Village".equals(name)) {
-                fieldNames = new String[] { "villageGenerator", "field_186006_y" };
-            } else if ("Temple".equals(name)) {
-                fieldNames = new String[] { "scatteredFeatureGenerator", "field_186007_z" };
-            } else if ("Monument".equals(name)) {
-                fieldNames = new String[] { "oceanMonumentGenerator", "field_185980_A" };
-            } else if ("Mansion".equals(name)) {
-                fieldNames = new String[] { "woodlandMansionGenerator", "field_191060_C" };
-            } else if ("EndCity".equals(name)) {
-                fieldNames = new String[] { "endCityGen", "field_185965_v" };
-            } else {
-                fieldNames = new String[0];
-            }
-            for (String fn : fieldNames) {
-                Field f = findField(chunkGen.getClass(), fn);
-                if (f != null) {
-                    f.setAccessible(true);
-                    Object v = f.get(chunkGen);
-                    if (v != null) {
-                        return v;
-                    }
-                }
-            }
-        } catch (Exception ignored) {
-        }
-        return null;
-    }
-
-    @Nullable
-    private static BlockPos invokeNearestStructure(WorldServer world, String name, BlockPos near) {
-        Object structureGen = getStructureGenerator(world, name);
-        if (structureGen != null) {
-            BlockPos direct = invokeGetNearest(structureGen, world, near, false);
-            if (direct == null) {
-                direct = invokeGetNearest(structureGen, world, near, true);
-            }
-            if (direct != null) {
-                return direct;
-            }
-        }
-
-        try {
-            IChunkProvider provider = world.getChunkProvider();
-            if (!(provider instanceof ChunkProviderServer)) {
-                return null;
-            }
-            IChunkGenerator gen = ((ChunkProviderServer) provider).chunkGenerator;
-            Method m = findMethod(gen.getClass(), "getNearestStructurePos",
-                    World.class, String.class, BlockPos.class, boolean.class);
-            if (m == null) {
-                return null;
-            }
-            m.setAccessible(true);
-            Object result = m.invoke(gen, world, name, near, false);
-            if (!(result instanceof BlockPos)) {
-                result = m.invoke(gen, world, name, near, true);
-            }
-            return result instanceof BlockPos ? (BlockPos) result : null;
-        } catch (Exception e) {
+    private static BlockPos findNearestStructure(ServerWorld world, String name, BlockPos near) {
+        Structure<?> structure = structureForName(name);
+        if (structure == null) {
             return null;
         }
+        BlockPos found = world.findNearestMapFeature(structure, near, 640, false);
+        if (found == null) {
+            found = world.findNearestMapFeature(structure, near, 640, true);
+        }
+        return found;
     }
 
     @Nullable
-    private static BlockPos invokeGetNearest(Object structureGen, World world, BlockPos near, boolean findUnexplored) {
-        try {
-            Method m = findMethod(structureGen.getClass(), "getNearestStructurePos",
-                    World.class, BlockPos.class, boolean.class);
-            if (m == null) {
-                return null;
-            }
-            m.setAccessible(true);
-            Object r = m.invoke(structureGen, world, near, findUnexplored);
-            return r instanceof BlockPos ? (BlockPos) r : null;
-        } catch (Exception e) {
+    private static Structure<?> structureForName(String name) {
+        if (name == null) {
             return null;
         }
-    }
-
-    @Nullable
-    private static Method findMethod(Class<?> type, String name, Class<?>... params) {
-        Class<?> c = type;
-        while (c != null) {
-            try {
-                return c.getDeclaredMethod(name, params);
-            } catch (NoSuchMethodException e) {
-                c = c.getSuperclass();
-            }
+        switch (name) {
+            case "Village":
+                return Structure.VILLAGE;
+            case "Monument":
+                return Structure.OCEAN_MONUMENT;
+            case "Mansion":
+                return Structure.WOODLAND_MANSION;
+            case "Temple":
+                return Structure.DESERT_PYRAMID;
+            case "Mineshaft":
+                return Structure.MINESHAFT;
+            case "Stronghold":
+                return Structure.STRONGHOLD;
+            case "Fortress":
+                return Structure.NETHER_BRIDGE;
+            case "EndCity":
+                return Structure.END_CITY;
+            default:
+                ResourceLocation id = new ResourceLocation(name.contains(":") ? name : "minecraft:" + name.toLowerCase());
+                return ForgeRegistries.STRUCTURE_FEATURES.getValue(id);
         }
-        return null;
-    }
-
-    @Nullable
-    private static Field findField(Class<?> type, String name) {
-        Class<?> c = type;
-        while (c != null) {
-            try {
-                return c.getDeclaredField(name);
-            } catch (NoSuchFieldException e) {
-                c = c.getSuperclass();
-            }
-        }
-        return null;
     }
 
     public static List<Biome> allBiomes() {
-        List<Biome> list = new ArrayList<Biome>();
+        List<Biome> list = new ArrayList<>();
         for (Biome b : ForgeRegistries.BIOMES) {
             if (b != null) {
                 list.add(b);

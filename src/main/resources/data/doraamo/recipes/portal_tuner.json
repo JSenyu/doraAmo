@@ -1,0 +1,16 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "D",
+    "S",
+    "O"
+  ],
+  "key": {
+    "D": { "item": "minecraft:diamond_block" },
+    "S": { "item": "minecraft:nether_star" },
+    "O": { "item": "minecraft:obsidian" }
+  },
+  "result": {
+    "item": "doraamo:portal_tuner"
+  }
+}

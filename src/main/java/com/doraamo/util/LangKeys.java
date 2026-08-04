@@ -52,8 +52,8 @@ public final class LangKeys {
     private LangKeys() {
     }
 
-    public static String dimensionKey(int dimensionId) {
-        return DIMENSION_PREFIX + dimensionId;
+    public static String dimensionKey(String dimensionKey) {
+        return DIMENSION_PREFIX + dimensionKey.replace(':', '.');
     }
 
     public static String modeKey(String modeName) {

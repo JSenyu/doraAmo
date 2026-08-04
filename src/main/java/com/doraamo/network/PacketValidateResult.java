@@ -2,16 +2,17 @@ package com.doraamo.network;
 
 import com.doraamo.client.GuiPortalTuner;
 import com.doraamo.portal.PortalDoorPlacer;
-import io.netty.buffer.ByteBuf;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiScreen;
-import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
-import net.minecraftforge.fml.common.network.simpleimpl.IMessageHandler;
-import net.minecraftforge.fml.common.network.simpleimpl.MessageContext;
-import net.minecraftforge.fml.relauncher.Side;
-import net.minecraftforge.fml.relauncher.SideOnly;
+import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.network.PacketBuffer;
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.api.distmarker.OnlyIn;
+import net.minecraftforge.fml.DistExecutor;
+import net.minecraftforge.fml.network.NetworkEvent;
 
-public class PacketValidateResult implements IMessage {
+import java.util.function.Supplier;
+
+public class PacketValidateResult {
 
     private boolean found;
     private int x;
@@ -34,47 +35,39 @@ public class PacketValidateResult implements IMessage {
         return new PacketValidateResult(false, 0, 0, 0, PortalDoorPlacer.PlaceHazard.NONE.ordinal());
     }
 
-    @Override
-    public void fromBytes(ByteBuf buf) {
-        found = buf.readBoolean();
-        x = buf.readInt();
-        y = buf.readInt();
-        z = buf.readInt();
-        hazardOrdinal = buf.readByte() & 0xFF;
+    public static void encode(PacketValidateResult msg, PacketBuffer buf) {
+        buf.writeBoolean(msg.found);
+        buf.writeInt(msg.x);
+        buf.writeInt(msg.y);
+        buf.writeInt(msg.z);
+        buf.writeByte(msg.hazardOrdinal);
     }
 
-    @Override
-    public void toBytes(ByteBuf buf) {
-        buf.writeBoolean(found);
-        buf.writeInt(x);
-        buf.writeInt(y);
-        buf.writeInt(z);
-        buf.writeByte(hazardOrdinal);
+    public static PacketValidateResult decode(PacketBuffer buf) {
+        PacketValidateResult msg = new PacketValidateResult();
+        msg.found = buf.readBoolean();
+        msg.x = buf.readInt();
+        msg.y = buf.readInt();
+        msg.z = buf.readInt();
+        msg.hazardOrdinal = buf.readByte() & 0xFF;
+        return msg;
     }
 
-    public static class Handler implements IMessageHandler<PacketValidateResult, IMessage> {
-        @Override
-        public IMessage onMessage(final PacketValidateResult message, final MessageContext ctx) {
-            handleClient(message);
-            return null;
-        }
+    public static void handle(PacketValidateResult msg, Supplier<NetworkEvent.Context> ctx) {
+        ctx.get().enqueueWork(() -> DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> () -> handleClient(msg)));
+        ctx.get().setPacketHandled(true);
+    }
 
-        @SideOnly(Side.CLIENT)
-        private static void handleClient(final PacketValidateResult message) {
-            Minecraft.getMinecraft().addScheduledTask(new Runnable() {
-                @Override
-                public void run() {
-                    GuiScreen screen = Minecraft.getMinecraft().currentScreen;
-                    if (screen instanceof GuiPortalTuner) {
-                        PortalDoorPlacer.PlaceHazard[] values = PortalDoorPlacer.PlaceHazard.values();
-                        PortalDoorPlacer.PlaceHazard hazard = message.hazardOrdinal < values.length
-                                ? values[message.hazardOrdinal]
-                                : PortalDoorPlacer.PlaceHazard.WALL;
-                        ((GuiPortalTuner) screen).onValidateResult(
-                                message.found, message.x, message.y, message.z, hazard);
-                    }
-                }
-            });
+    @OnlyIn(Dist.CLIENT)
+    private static void handleClient(PacketValidateResult message) {
+        Screen screen = Minecraft.getInstance().screen;
+        if (screen instanceof GuiPortalTuner) {
+            PortalDoorPlacer.PlaceHazard[] values = PortalDoorPlacer.PlaceHazard.values();
+            PortalDoorPlacer.PlaceHazard hazard = message.hazardOrdinal < values.length
+                    ? values[message.hazardOrdinal]
+                    : PortalDoorPlacer.PlaceHazard.WALL;
+            ((GuiPortalTuner) screen).onValidateResult(
+                    message.found, message.x, message.y, message.z, hazard);
         }
     }
 }

@@ -6,107 +6,94 @@ import com.doraamo.destination.DestinationSettings;
 import com.doraamo.item.ItemPortalTuner;
 import com.doraamo.item.ModItems;
 import com.doraamo.tileentity.TileEntityPortalDoor;
+import com.doraamo.util.DimUtil;
 import com.doraamo.util.LangKeys;
-import io.netty.buffer.ByteBuf;
-import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.entity.player.ServerPlayerEntity;
 import net.minecraft.item.ItemStack;
-import net.minecraft.util.EnumHand;
+import net.minecraft.network.PacketBuffer;
+import net.minecraft.util.Hand;
 import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.text.TextComponentTranslation;
-import net.minecraftforge.fml.common.network.ByteBufUtils;
-import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
-import net.minecraftforge.fml.common.network.simpleimpl.IMessageHandler;
-import net.minecraftforge.fml.common.network.simpleimpl.MessageContext;
+import net.minecraft.util.text.TranslationTextComponent;
+import net.minecraftforge.fml.network.NetworkEvent;
 
-public class PacketSaveTuner implements IMessage {
+import java.util.function.Supplier;
 
-    private int hand;
+public class PacketSaveTuner {
+
+    private Hand hand;
     private DestinationSettings settings = new DestinationSettings();
-    private int portalX;
-    private int portalY;
-    private int portalZ;
+    private BlockPos portalPos = BlockPos.ZERO;
     private boolean force;
 
     public PacketSaveTuner() {
     }
 
-    public PacketSaveTuner(EnumHand hand, DestinationSettings settings, BlockPos portalPos, boolean force) {
-        this.hand = hand == EnumHand.OFF_HAND ? 1 : 0;
+    public PacketSaveTuner(Hand hand, DestinationSettings settings, BlockPos portalPos, boolean force) {
+        this.hand = hand;
         this.settings = settings;
-        this.portalX = portalPos.getX();
-        this.portalY = portalPos.getY();
-        this.portalZ = portalPos.getZ();
+        this.portalPos = portalPos;
         this.force = force;
     }
 
-    @Override
-    public void fromBytes(ByteBuf buf) {
-        hand = buf.readByte();
-        settings.dimensionId = buf.readInt();
-        settings.mode = DestinationSettings.Mode.values()[buf.readByte()];
-        settings.biomeId = buf.readInt();
-        settings.structureName = ByteBufUtils.readUTF8String(buf);
-        settings.x = buf.readInt();
-        settings.y = buf.readInt();
-        settings.z = buf.readInt();
-        portalX = buf.readInt();
-        portalY = buf.readInt();
-        portalZ = buf.readInt();
-        force = buf.readBoolean();
-        settings.forceUnsafe = force;
+    public static void encode(PacketSaveTuner msg, PacketBuffer buf) {
+        buf.writeEnum(msg.hand);
+        buf.writeUtf(msg.settings.dimension == null ? "" : msg.settings.dimension);
+        buf.writeEnum(msg.settings.mode);
+        buf.writeUtf(msg.settings.biomeKey == null ? "minecraft:plains" : msg.settings.biomeKey);
+        buf.writeUtf(msg.settings.structureName == null ? "Village" : msg.settings.structureName);
+        buf.writeInt(msg.settings.x);
+        buf.writeInt(msg.settings.y);
+        buf.writeInt(msg.settings.z);
+        buf.writeBlockPos(msg.portalPos);
+        buf.writeBoolean(msg.force);
     }
 
-    @Override
-    public void toBytes(ByteBuf buf) {
-        buf.writeByte(hand);
-        buf.writeInt(settings.dimensionId);
-        buf.writeByte(settings.mode.ordinal());
-        buf.writeInt(settings.biomeId);
-        ByteBufUtils.writeUTF8String(buf, settings.structureName == null ? "Village" : settings.structureName);
-        buf.writeInt(settings.x);
-        buf.writeInt(settings.y);
-        buf.writeInt(settings.z);
-        buf.writeInt(portalX);
-        buf.writeInt(portalY);
-        buf.writeInt(portalZ);
-        buf.writeBoolean(force);
+    public static PacketSaveTuner decode(PacketBuffer buf) {
+        PacketSaveTuner msg = new PacketSaveTuner();
+        msg.hand = buf.readEnum(Hand.class);
+        msg.settings.dimension = DimUtil.normalize(buf.readUtf(32767));
+        msg.settings.mode = buf.readEnum(DestinationSettings.Mode.class);
+        msg.settings.biomeKey = buf.readUtf(32767);
+        msg.settings.structureName = buf.readUtf(32767);
+        msg.settings.x = buf.readInt();
+        msg.settings.y = buf.readInt();
+        msg.settings.z = buf.readInt();
+        msg.portalPos = buf.readBlockPos();
+        msg.force = buf.readBoolean();
+        msg.settings.forceUnsafe = msg.force;
+        return msg;
     }
 
-    public static class Handler implements IMessageHandler<PacketSaveTuner, IMessage> {
-        @Override
-        public IMessage onMessage(final PacketSaveTuner message, final MessageContext ctx) {
-            EntityPlayerMP player = ctx.getServerHandler().player;
-            player.getServerWorld().addScheduledTask(new Runnable() {
-                @Override
-                public void run() {
-                    EnumHand h = message.hand == 1 ? EnumHand.OFF_HAND : EnumHand.MAIN_HAND;
-                    ItemStack stack = player.getHeldItem(h);
-                    if (stack.getItem() != ModItems.PORTAL_TUNER) {
-                        return;
-                    }
-                    message.settings.forceUnsafe = message.force;
-                    ItemPortalTuner.setSettings(stack, message.settings);
+    public static void handle(PacketSaveTuner msg, Supplier<NetworkEvent.Context> ctx) {
+        ctx.get().enqueueWork(() -> {
+            ServerPlayerEntity player = ctx.get().getSender();
+            if (player == null) {
+                return;
+            }
+            ItemStack stack = player.getItemInHand(msg.hand);
+            if (stack.getItem() != ModItems.PORTAL_TUNER.get()) {
+                return;
+            }
+            msg.settings.forceUnsafe = msg.force;
+            ItemPortalTuner.setSettings(stack, msg.settings);
 
-                    BlockPos portalPos = new BlockPos(message.portalX, message.portalY, message.portalZ);
-                    if (player.world.getBlockState(portalPos).getBlock() != ModBlocks.PORTAL_DOOR) {
-                        return;
-                    }
-                    TileEntityPortalDoor te = BlockPortalDoor.getTile(player.world, portalPos,
-                            player.world.getBlockState(portalPos));
-                    if (te == null || te.isSubGate()) {
-                        player.sendStatusMessage(new TextComponentTranslation(LangKeys.TUNER_SUB_LOCKED), true);
-                        return;
-                    }
-                    boolean hadBinding = te.getDestination() != null;
-                    te.setDestination(message.settings);
-                    if (hadBinding) {
-                        player.sendStatusMessage(new TextComponentTranslation(LangKeys.TUNER_OVERWRITE), true);
-                    } else {
-                        player.sendStatusMessage(new TextComponentTranslation(LangKeys.TUNER_APPLIED), true);
-                    }
-                }
-            });
-            return null;
-        }
+            if (player.level.getBlockState(msg.portalPos).getBlock() != ModBlocks.PORTAL_DOOR.get()) {
+                return;
+            }
+            TileEntityPortalDoor te = BlockPortalDoor.getTile(player.level, msg.portalPos,
+                    player.level.getBlockState(msg.portalPos));
+            if (te == null || te.isSubGate()) {
+                player.displayClientMessage(new TranslationTextComponent(LangKeys.TUNER_SUB_LOCKED), true);
+                return;
+            }
+            boolean hadBinding = te.getDestination() != null;
+            te.setDestination(msg.settings);
+            if (hadBinding) {
+                player.displayClientMessage(new TranslationTextComponent(LangKeys.TUNER_OVERWRITE), true);
+            } else {
+                player.displayClientMessage(new TranslationTextComponent(LangKeys.TUNER_APPLIED), true);
+            }
+        });
+        ctx.get().setPacketHandled(true);
     }
 }

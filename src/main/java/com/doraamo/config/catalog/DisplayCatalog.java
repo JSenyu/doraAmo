@@ -2,12 +2,13 @@ package com.doraamo.config.catalog;
 
 import com.doraamo.DoraAmo;
 import com.doraamo.destination.DestinationLocator;
+import com.doraamo.util.DimUtil;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.world.biome.Biome;
-import net.minecraftforge.common.DimensionManager;
-import net.minecraftforge.fml.common.registry.ForgeRegistries;
+import net.minecraftforge.fml.server.ServerLifecycleHooks;
+import net.minecraftforge.registries.ForgeRegistries;
 
 import javax.annotation.Nullable;
 import java.io.BufferedReader;
@@ -105,13 +106,20 @@ public final class DisplayCatalog {
         return file.entries.get(id);
     }
 
-    public static String displayDimension(int dimId) {
-        CatalogEntry e = get(Kind.DIMENSION, Integer.toString(dimId));
+    public static String displayDimension(String dimKey) {
+        if (DimUtil.isBlank(dimKey)) {
+            return "?";
+        }
+        String norm = DimUtil.normalize(dimKey);
+        CatalogEntry e = get(Kind.DIMENSION, norm);
+        if (e == null) {
+            e = get(Kind.DIMENSION, Integer.toString(DimUtil.toLegacyInt(norm)));
+        }
         String named = e == null ? null : e.pickName(preferChinese);
         if (named != null) {
             return named;
         }
-        return Integer.toString(dimId);
+        return norm;
     }
 
     public static String displayBiome(Biome biome) {
@@ -119,13 +127,13 @@ public final class DisplayCatalog {
             return "?";
         }
         ResourceLocation key = ForgeRegistries.BIOMES.getKey(biome);
-        String id = key != null ? key.toString() : ("biome:" + Biome.getIdForBiome(biome));
+        String id = key != null ? key.toString() : "minecraft:plains";
         CatalogEntry e = get(Kind.BIOME, id);
         String named = e == null ? null : e.pickName(preferChinese);
         if (named != null) {
             return named;
         }
-        return Integer.toString(Biome.getIdForBiome(biome));
+        return id;
     }
 
     public static String displayStructure(String structureId) {
@@ -171,39 +179,38 @@ public final class DisplayCatalog {
         return list.toArray(new String[list.size()]);
     }
 
-    public static List<String> structuresForDim(int dimId) {
-        LinkedHashMap<String, Boolean> ordered = new LinkedHashMap<String, Boolean>();
-        for (String vanilla : DestinationLocator.structuresForDim(dimId)) {
+    public static List<String> structuresForDim(String dimKey) {
+        LinkedHashMap<String, Boolean> ordered = new LinkedHashMap<>();
+        for (String vanilla : DestinationLocator.structuresForDim(dimKey)) {
             ordered.put(vanilla, Boolean.TRUE);
         }
         if (structures.entries != null) {
             for (Map.Entry<String, CatalogEntry> e : structures.entries.entrySet()) {
-                if (e.getValue() != null && e.getValue().appliesToDim(dimId)) {
+                if (e.getValue() != null && e.getValue().appliesToDim(dimKey)) {
                     ordered.put(e.getKey(), Boolean.TRUE);
                 }
             }
         }
-        return new ArrayList<String>(ordered.keySet());
+        return new ArrayList<>(ordered.keySet());
     }
 
     private static boolean syncDimensions() {
         boolean changed = false;
         try {
-            Integer[] ids = DimensionManager.getStaticDimensionIDs();
-            if (ids != null) {
-                Integer[] sorted = ids.clone();
-                Arrays.sort(sorted);
-                for (Integer idObj : sorted) {
-                    if (idObj == null) {
-                        continue;
-                    }
-                    String key = Integer.toString(idObj.intValue());
-                    if (!dimensions.entries.containsKey(key)) {
-                        CatalogEntry entry = new CatalogEntry();
-                        seedDimension(key, entry);
-                        dimensions.entries.put(key, entry);
-                        changed = true;
-                    }
+            java.util.List<String> keys = new ArrayList<>();
+            keys.add(DimUtil.OVERWORLD);
+            keys.add(DimUtil.NETHER);
+            keys.add(DimUtil.END);
+            if (ServerLifecycleHooks.getCurrentServer() != null) {
+                keys.addAll(DimUtil.allLevelKeys(ServerLifecycleHooks.getCurrentServer()));
+            }
+            for (String key : keys) {
+                String norm = DimUtil.normalize(key);
+                if (!dimensions.entries.containsKey(norm)) {
+                    CatalogEntry entry = new CatalogEntry();
+                    seedDimension(norm, entry);
+                    dimensions.entries.put(norm, entry);
+                    changed = true;
                 }
             }
         } catch (Throwable t) {
@@ -214,7 +221,7 @@ public final class DisplayCatalog {
 
     private static boolean syncBiomes() {
         boolean changed = false;
-        List<ResourceLocation> keys = new ArrayList<ResourceLocation>(ForgeRegistries.BIOMES.getKeys());
+        List<ResourceLocation> keys = new ArrayList<>(ForgeRegistries.BIOMES.getKeys());
         Collections.sort(keys, new java.util.Comparator<ResourceLocation>() {
             @Override
             public int compare(ResourceLocation a, ResourceLocation b) {
@@ -236,28 +243,28 @@ public final class DisplayCatalog {
     private static boolean syncStructures() {
         boolean changed = false;
         for (String id : DestinationLocator.STRUCTURES_OVERWORLD) {
-            changed |= ensureStructure(id, Arrays.asList(Integer.valueOf(0)));
+            changed |= ensureStructure(id, Arrays.asList(DimUtil.OVERWORLD));
         }
         for (String id : DestinationLocator.STRUCTURES_NETHER) {
-            changed |= ensureStructure(id, Arrays.asList(Integer.valueOf(-1)));
+            changed |= ensureStructure(id, Arrays.asList(DimUtil.NETHER));
         }
         for (String id : DestinationLocator.STRUCTURES_END) {
-            changed |= ensureStructure(id, Arrays.asList(Integer.valueOf(1)));
+            changed |= ensureStructure(id, Arrays.asList(DimUtil.END));
         }
         return changed;
     }
 
-    private static boolean ensureStructure(String id, List<Integer> defaultDims) {
+    private static boolean ensureStructure(String id, List<String> defaultDims) {
         CatalogEntry existing = structures.entries.get(id);
         if (existing == null) {
             CatalogEntry entry = new CatalogEntry();
-            entry.dims = new ArrayList<Integer>(defaultDims);
+            entry.dims = new ArrayList<>(defaultDims);
             seedStructure(id, entry);
             structures.entries.put(id, entry);
             return true;
         }
         if ((existing.dims == null || existing.dims.isEmpty()) && defaultDims != null && !defaultDims.isEmpty()) {
-            existing.dims = new ArrayList<Integer>(defaultDims);
+            existing.dims = new ArrayList<>(defaultDims);
             return true;
         }
         return false;
@@ -265,9 +272,9 @@ public final class DisplayCatalog {
 
     private static void seedDefaultsIfEmpty() {
         if (dimensions.entries.isEmpty()) {
-            seedDimension("0", putNew(dimensions, "0"));
-            seedDimension("-1", putNew(dimensions, "-1"));
-            seedDimension("1", putNew(dimensions, "1"));
+            seedDimension(DimUtil.OVERWORLD, putNew(dimensions, DimUtil.OVERWORLD));
+            seedDimension(DimUtil.NETHER, putNew(dimensions, DimUtil.NETHER));
+            seedDimension(DimUtil.END, putNew(dimensions, DimUtil.END));
         }
         if (structures.entries.isEmpty()) {
             syncStructures();
@@ -281,11 +288,11 @@ public final class DisplayCatalog {
     }
 
     private static void seedDimension(String id, CatalogEntry e) {
-        if ("0".equals(id)) {
+        if (DimUtil.OVERWORLD.equals(id) || "0".equals(id)) {
             fill(e, "主世界", "Overworld", "zhushijie", "zsj");
-        } else if ("-1".equals(id)) {
+        } else if (DimUtil.NETHER.equals(id) || "-1".equals(id)) {
             fill(e, "地狱", "Nether", "diyu", "dy");
-        } else if ("1".equals(id)) {
+        } else if (DimUtil.END.equals(id) || "1".equals(id)) {
             fill(e, "末地", "The End", "modi", "md");
         }
     }

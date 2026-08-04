@@ -1,105 +1,115 @@
 package com.doraamo.item;
 
-import com.doraamo.DoraAmo;
 import com.doraamo.block.BlockPortalDoor;
 import com.doraamo.block.ModBlocks;
+import com.doraamo.client.GuiPortalTuner;
 import com.doraamo.destination.DestinationSettings;
 import com.doraamo.portal.PortalFinder;
 import com.doraamo.tileentity.TileEntityPortalDoor;
+import com.doraamo.util.DimUtil;
 import com.doraamo.util.LangKeys;
-import net.minecraft.creativetab.CreativeTabs;
-import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.client.Minecraft;
+import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
-import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.nbt.CompoundNBT;
 import net.minecraft.util.ActionResult;
-import net.minecraft.util.EnumActionResult;
-import net.minecraft.util.EnumFacing;
-import net.minecraft.util.EnumHand;
+import net.minecraft.util.ActionResultType;
+import net.minecraft.util.Hand;
 import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.text.TextComponentTranslation;
+import net.minecraft.util.text.TranslationTextComponent;
 import net.minecraft.world.World;
-import net.minecraftforge.fml.relauncher.Side;
-import net.minecraftforge.fml.relauncher.SideOnly;
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.fml.DistExecutor;
 
 public class ItemPortalTuner extends Item {
 
-    public ItemPortalTuner() {
-        setRegistryName(DoraAmo.MODID, "portal_tuner");
-        setUnlocalizedName(DoraAmo.MODID + ".portal_tuner");
-        setMaxStackSize(1);
-        setCreativeTab(CreativeTabs.TOOLS);
+    public ItemPortalTuner(Properties properties) {
+        super(properties);
     }
 
     public static DestinationSettings getSettings(ItemStack stack) {
-        if (!stack.hasTagCompound()) {
+        if (!stack.hasTag()) {
             return new DestinationSettings();
         }
-        return DestinationSettings.fromNBT(stack.getTagCompound().getCompoundTag("Dest"));
+        CompoundNBT tag = stack.getTag();
+        if (tag != null && tag.contains("Dest")) {
+            return DestinationSettings.fromNBT(tag.getCompound("Dest"));
+        }
+        return new DestinationSettings();
     }
 
     public static void setSettings(ItemStack stack, DestinationSettings settings) {
-        if (!stack.hasTagCompound()) {
-            stack.setTagCompound(new NBTTagCompound());
-        }
-        stack.getTagCompound().setTag("Dest", settings.writeToNBT(new NBTTagCompound()));
+        CompoundNBT tag = stack.getOrCreateTag();
+        tag.put("Dest", settings.writeToNBT(new CompoundNBT()));
     }
 
-    @SideOnly(Side.CLIENT)
     @Override
-    public boolean hasEffect(ItemStack stack) {
+    public boolean isFoil(ItemStack stack) {
         return true;
     }
 
     @Override
-    public EnumActionResult onItemUse(EntityPlayer player, World worldIn, BlockPos pos, EnumHand hand,
-                                      EnumFacing facing, float hitX, float hitY, float hitZ) {
-        if (worldIn.getBlockState(pos).getBlock() != ModBlocks.PORTAL_DOOR) {
-            return EnumActionResult.PASS;
+    public ActionResultType useOn(net.minecraft.item.ItemUseContext context) {
+        World world = context.getLevel();
+        BlockPos pos = context.getClickedPos();
+        if (world.getBlockState(pos).getBlock() != ModBlocks.PORTAL_DOOR.get()) {
+            return ActionResultType.PASS;
         }
-        ItemStack stack = player.getHeldItem(hand);
-        TileEntityPortalDoor te = BlockPortalDoor.getTile(worldIn, pos, worldIn.getBlockState(pos));
+        ItemStack stack = context.getItemInHand();
+        PlayerEntity player = context.getPlayer();
+        if (player == null) {
+            return ActionResultType.PASS;
+        }
+        Hand hand = context.getHand();
+        TileEntityPortalDoor te = BlockPortalDoor.getTile(world, pos, world.getBlockState(pos));
         if (te == null) {
-            return EnumActionResult.FAIL;
+            return ActionResultType.FAIL;
         }
-        if (te.isSubGate() || BlockPortalDoor.isSub(worldIn.getBlockState(pos))) {
-            if (!worldIn.isRemote) {
-                player.sendStatusMessage(new TextComponentTranslation(LangKeys.TUNER_SUB_LOCKED), true);
+        if (te.isSubGate() || BlockPortalDoor.isSub(world.getBlockState(pos))) {
+            if (!world.isClientSide) {
+                player.displayClientMessage(new TranslationTextComponent(LangKeys.TUNER_SUB_LOCKED), true);
             }
-            return EnumActionResult.FAIL;
+            return ActionResultType.FAIL;
         }
-        if (worldIn.isRemote) {
-            BlockPos base = te.getPos();
+        if (world.isClientSide) {
+            BlockPos base = te.getBlockPos();
             DestinationSettings bound = te.getDestination();
             DestinationSettings draft = bound != null ? bound.copy() : getSettings(stack).copy();
             if (draft.mode == DestinationSettings.Mode.SCALED) {
                 draft.mode = DestinationSettings.Mode.COORDS;
-                draft.x = (int) Math.floor(player.posX);
-                draft.y = (int) Math.floor(player.posY);
-                draft.z = (int) Math.floor(player.posZ);
-                draft.dimensionId = player.dimension;
+                draft.x = (int) Math.floor(player.getX());
+                draft.y = (int) Math.floor(player.getY());
+                draft.z = (int) Math.floor(player.getZ());
+                draft.dimension = player.level.dimension().location().toString();
             }
-            DoraAmo.proxy.openTunerGui(hand, stack, base, draft, bound != null);
+            openGui(hand, stack, base, draft, bound != null);
         }
-        return EnumActionResult.SUCCESS;
+        return ActionResultType.SUCCESS;
+    }
+
+    private static void openGui(Hand hand, ItemStack stack, BlockPos portalPos,
+                                DestinationSettings draft, boolean hasExistingBinding) {
+        DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> () ->
+                Minecraft.getInstance().setScreen(new GuiPortalTuner(hand, draft, portalPos, hasExistingBinding)));
     }
 
     @Override
-    public ActionResult<ItemStack> onItemRightClick(World worldIn, EntityPlayer playerIn, EnumHand handIn) {
-        ItemStack stack = playerIn.getHeldItem(handIn);
-        if (!worldIn.isRemote) {
-            PortalFinder.NearestPortal nearest = PortalFinder.findNearest(worldIn, playerIn);
+    public ActionResult<ItemStack> use(World world, PlayerEntity player, Hand hand) {
+        ItemStack stack = player.getItemInHand(hand);
+        if (!world.isClientSide) {
+            PortalFinder.NearestPortal nearest = PortalFinder.findNearest(world, player);
             if (nearest == null) {
-                playerIn.sendStatusMessage(new TextComponentTranslation(LangKeys.TUNER_NO_NEARBY), true);
+                player.displayClientMessage(new TranslationTextComponent(LangKeys.TUNER_NO_NEARBY), true);
             } else {
-                String dirKey = PortalFinder.directionKey(playerIn, nearest.pos);
+                String dirKey = PortalFinder.directionKey(player, nearest.pos);
                 String typeKey = nearest.subGate ? LangKeys.TUNER_TYPE_SUB : LangKeys.TUNER_TYPE_MAIN;
-                playerIn.sendStatusMessage(new TextComponentTranslation(LangKeys.TUNER_NEAREST,
-                        new TextComponentTranslation(typeKey),
-                        new TextComponentTranslation(dirKey),
-                        Integer.valueOf((int) Math.round(nearest.distance))), true);
+                player.displayClientMessage(new TranslationTextComponent(LangKeys.TUNER_NEAREST,
+                        new TranslationTextComponent(typeKey),
+                        new TranslationTextComponent(dirKey),
+                        (int) Math.round(nearest.distance)), true);
             }
         }
-        return new ActionResult<ItemStack>(EnumActionResult.SUCCESS, stack);
+        return ActionResult.success(stack);
     }
 }

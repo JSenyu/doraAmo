@@ -1,6 +1,6 @@
 {
   "parent": "item/generated",
   "textures": {
-    "layer0": "doraamo:items/portal_tuner"
+    "layer0": "doraamo:item/portal_tuner"
   }
 }

@@ -3,17 +3,17 @@ package com.doraamo.network;
 import com.doraamo.destination.DestinationLocator;
 import com.doraamo.destination.DestinationSettings;
 import com.doraamo.portal.PortalDoorPlacer;
-import io.netty.buffer.ByteBuf;
-import net.minecraft.entity.player.EntityPlayerMP;
+import com.doraamo.util.DimUtil;
+import net.minecraftforge.fml.network.PacketDistributor;
+import net.minecraft.entity.player.ServerPlayerEntity;
+import net.minecraft.network.PacketBuffer;
 import net.minecraft.util.math.BlockPos;
-import net.minecraft.world.WorldServer;
-import net.minecraftforge.common.DimensionManager;
-import net.minecraftforge.fml.common.network.ByteBufUtils;
-import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
-import net.minecraftforge.fml.common.network.simpleimpl.IMessageHandler;
-import net.minecraftforge.fml.common.network.simpleimpl.MessageContext;
+import net.minecraft.world.server.ServerWorld;
+import net.minecraftforge.fml.network.NetworkEvent;
 
-public class PacketValidateTuner implements IMessage {
+import java.util.function.Supplier;
+
+public class PacketValidateTuner {
 
     private DestinationSettings settings = new DestinationSettings();
 
@@ -24,85 +24,73 @@ public class PacketValidateTuner implements IMessage {
         this.settings = settings;
     }
 
-    @Override
-    public void fromBytes(ByteBuf buf) {
-        settings.dimensionId = buf.readInt();
-        int modeOrd = buf.readByte() & 0xFF;
-        DestinationSettings.Mode[] modes = DestinationSettings.Mode.values();
-        settings.mode = modeOrd < modes.length ? modes[modeOrd] : DestinationSettings.Mode.COORDS;
-        settings.biomeId = buf.readInt();
-        settings.structureName = ByteBufUtils.readUTF8String(buf);
-        settings.x = buf.readInt();
-        settings.y = buf.readInt();
-        settings.z = buf.readInt();
+    public static void encode(PacketValidateTuner msg, PacketBuffer buf) {
+        buf.writeUtf(msg.settings.dimension == null ? "" : msg.settings.dimension);
+        buf.writeEnum(msg.settings.mode);
+        buf.writeUtf(msg.settings.biomeKey == null ? "minecraft:plains" : msg.settings.biomeKey);
+        buf.writeUtf(msg.settings.structureName == null ? "Village" : msg.settings.structureName);
+        buf.writeInt(msg.settings.x);
+        buf.writeInt(msg.settings.y);
+        buf.writeInt(msg.settings.z);
     }
 
-    @Override
-    public void toBytes(ByteBuf buf) {
-        buf.writeInt(settings.dimensionId);
-        buf.writeByte(settings.mode.ordinal());
-        buf.writeInt(settings.biomeId);
-        ByteBufUtils.writeUTF8String(buf, settings.structureName == null ? "Village" : settings.structureName);
-        buf.writeInt(settings.x);
-        buf.writeInt(settings.y);
-        buf.writeInt(settings.z);
+    public static PacketValidateTuner decode(PacketBuffer buf) {
+        PacketValidateTuner msg = new PacketValidateTuner();
+        msg.settings.dimension = DimUtil.normalize(buf.readUtf(32767));
+        msg.settings.mode = buf.readEnum(DestinationSettings.Mode.class);
+        msg.settings.biomeKey = buf.readUtf(32767);
+        msg.settings.structureName = buf.readUtf(32767);
+        msg.settings.x = buf.readInt();
+        msg.settings.y = buf.readInt();
+        msg.settings.z = buf.readInt();
+        return msg;
     }
 
-    public static class Handler implements IMessageHandler<PacketValidateTuner, IMessage> {
-        @Override
-        public IMessage onMessage(final PacketValidateTuner message, final MessageContext ctx) {
-            final EntityPlayerMP player = ctx.getServerHandler().player;
-            player.getServerWorld().addScheduledTask(new Runnable() {
-                @Override
-                public void run() {
-                    DestinationSettings s = message.settings;
-                    if (!DimensionManager.isDimensionRegistered(s.dimensionId)) {
-                        PacketHandler.CHANNEL.sendTo(PacketValidateResult.notFound(), player);
-                        return;
-                    }
-                    WorldServer world = player.getServer().getWorld(s.dimensionId);
-                    if (world == null) {
-                        PacketHandler.CHANNEL.sendTo(PacketValidateResult.notFound(), player);
-                        return;
-                    }
-                    BlockPos near = new BlockPos(player.posX, player.posY, player.posZ);
-                    if (player.dimension != s.dimensionId) {
-                        double scale = player.world.provider.getMovementFactor()
-                                / world.provider.getMovementFactor();
-                        int y = (int) player.posY;
-                        if (s.dimensionId == -1) {
-                            y = Math.max(32, Math.min(120, y));
-                        }
-                        near = new BlockPos(
-                                (int) Math.floor(player.posX * scale),
-                                y,
-                                (int) Math.floor(player.posZ * scale));
-                    } else if (s.dimensionId == -1) {
-                        near = new BlockPos(near.getX(),
-                                Math.max(32, Math.min(120, near.getY())), near.getZ());
-                    }
-                    DestinationLocator.ValidateResult result = DestinationLocator.validate(world, near, s);
-                    if (!result.found || result.pos == null) {
-                        PacketHandler.CHANNEL.sendTo(PacketValidateResult.notFound(), player);
-                        return;
-                    }
-                    BlockPos placePos = result.pos;
-                    if (s.mode == DestinationSettings.Mode.BIOME
-                            || (s.mode == DestinationSettings.Mode.STRUCTURE
-                            && !DestinationLocator.isUndergroundStructure(s.structureName)
-                            && !DestinationLocator.isWaterOrFloatStructure(s.structureName))) {
-                        BlockPos safe = PortalDoorPlacer.findSafeDoorPos(world, result.pos,
-                                PortalDoorPlacer.SAFE_SEARCH_RADIUS);
-                        if (safe != null) {
-                            placePos = safe;
-                        }
-                    }
-                    PortalDoorPlacer.PlaceHazard hazard = PortalDoorPlacer.diagnose(world, placePos);
-                    PacketHandler.CHANNEL.sendTo(new PacketValidateResult(true, placePos.getX(),
-                            placePos.getY(), placePos.getZ(), hazard.ordinal()), player);
+    public static void handle(PacketValidateTuner msg, Supplier<NetworkEvent.Context> ctx) {
+        ctx.get().enqueueWork(() -> {
+            ServerPlayerEntity player = ctx.get().getSender();
+            if (player == null) {
+                return;
+            }
+            DestinationSettings s = msg.settings;
+            ServerWorld world = DimUtil.getLevel(player.getServer(), s.dimension);
+            if (world == null) {
+                PacketHandler.CHANNEL.send(PacketDistributor.PLAYER.with(() -> player), PacketValidateResult.notFound());
+                return;
+            }
+            BlockPos near = player.blockPosition();
+            if (!player.level.dimension().location().toString().equals(s.dimension)) {
+                double scale = DimUtil.coordinateScale(player.level) / DimUtil.coordinateScale(world);
+                int y = (int) player.getY();
+                if (DimUtil.isNether(s.dimension)) {
+                    y = Math.max(32, Math.min(120, y));
                 }
-            });
-            return null;
-        }
+                near = new BlockPos(
+                        (int) Math.floor(player.getX() * scale),
+                        y,
+                        (int) Math.floor(player.getZ() * scale));
+            } else if (DimUtil.isNether(s.dimension)) {
+                near = new BlockPos(near.getX(), Math.max(32, Math.min(120, near.getY())), near.getZ());
+            }
+            DestinationLocator.ValidateResult result = DestinationLocator.validate(world, near, s);
+            if (!result.found || result.pos == null) {
+                PacketHandler.CHANNEL.send(PacketDistributor.PLAYER.with(() -> player), PacketValidateResult.notFound());
+                return;
+            }
+            BlockPos placePos = result.pos;
+            if (s.mode == DestinationSettings.Mode.BIOME
+                    || (s.mode == DestinationSettings.Mode.STRUCTURE
+                    && !DestinationLocator.isUndergroundStructure(s.structureName)
+                    && !DestinationLocator.isWaterOrFloatStructure(s.structureName))) {
+                BlockPos safe = PortalDoorPlacer.findSafeDoorPos(world, result.pos, PortalDoorPlacer.SAFE_SEARCH_RADIUS);
+                if (safe != null) {
+                    placePos = safe;
+                }
+            }
+            PortalDoorPlacer.PlaceHazard hazard = PortalDoorPlacer.diagnose(world, placePos);
+            PacketHandler.CHANNEL.send(PacketDistributor.PLAYER.with(() -> player),
+                    new PacketValidateResult(true, placePos.getX(), placePos.getY(), placePos.getZ(), hazard.ordinal()));
+        });
+        ctx.get().setPacketHandled(true);
     }
 }

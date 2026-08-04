@@ -1,5 +1,7 @@
 package com.doraamo.config.catalog;
 
+import com.doraamo.util.DimUtil;
+
 import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -12,17 +14,10 @@ public class CatalogEntry {
     public String name_en = "";
     public String pinyin = "";
     public String initials = "";
-    /** Structure only: dimension ids where this structure is listed. Empty = all dims. */
-    public List<Integer> dims = new ArrayList<Integer>();
+    /** Structure only: dimension keys where this structure is listed. Empty = all dims. */
+    public List<String> dims = new ArrayList<>();
 
     public CatalogEntry() {
-    }
-
-    public CatalogEntry(String nameZh, String nameEn, String pinyin, String initials) {
-        this.name_zh = nameZh == null ? "" : nameZh;
-        this.name_en = nameEn == null ? "" : nameEn;
-        this.pinyin = pinyin == null ? "" : pinyin;
-        this.initials = initials == null ? "" : initials;
     }
 
     public boolean hasZh() {
@@ -47,18 +42,25 @@ public class CatalogEntry {
         return null;
     }
 
-    public List<Integer> dimsOrEmpty() {
-        return dims == null ? Collections.<Integer>emptyList() : dims;
+    public List<String> dimsOrEmpty() {
+        return dims == null ? Collections.emptyList() : dims;
     }
 
-    public boolean appliesToDim(int dimId) {
-        List<Integer> list = dimsOrEmpty();
+    public boolean appliesToDim(String dimKey) {
+        List<String> list = dimsOrEmpty();
         if (list.isEmpty()) {
             return true;
         }
-        for (Integer d : list) {
-            if (d != null && d.intValue() == dimId) {
+        String norm = DimUtil.normalize(dimKey);
+        for (String d : list) {
+            if (d != null && DimUtil.normalize(d).equals(norm)) {
                 return true;
+            }
+            try {
+                if (DimUtil.fromLegacyInt(Integer.parseInt(d)).equals(norm)) {
+                    return true;
+                }
+            } catch (NumberFormatException ignored) {
             }
         }
         return false;

@@ -3,21 +3,20 @@ package com.doraamo.portal;
 import com.doraamo.block.BlockPortalDoor;
 import com.doraamo.block.ModBlocks;
 import com.doraamo.tileentity.TileEntityPortalDoor;
+import com.doraamo.util.DimUtil;
+import net.minecraft.block.BlockState;
+import net.minecraft.block.Blocks;
 import net.minecraft.block.material.Material;
-import net.minecraft.block.state.IBlockState;
+import net.minecraft.fluid.Fluids;
 import net.minecraft.tileentity.TileEntity;
-import net.minecraft.util.EnumFacing;
+import net.minecraft.util.Direction;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.world.World;
-import net.minecraft.world.WorldServer;
+import net.minecraft.world.server.ServerWorld;
 
 import javax.annotation.Nullable;
 
-/**
- * Places portal doors without breaking solid blocks.
- * Safe search: solid floor, 2 replaceable cells, no liquid, no floating.
- */
 public final class PortalDoorPlacer {
 
     public static final int SAFE_SEARCH_RADIUS = 32;
@@ -25,25 +24,19 @@ public final class PortalDoorPlacer {
     private PortalDoorPlacer() {
     }
 
-    /**
-     * Exact coordinate: place only at {@code exact} if safe; otherwise null (caller should warn).
-     */
     @Nullable
-    public static BlockPos placeDoorExact(WorldServer world, BlockPos exact, EnumFacing facing,
-                                          BlockPortalDoor.EnumType type, @Nullable PortalRef mainLink) {
-        world.getChunkFromBlockCoords(exact);
+    public static BlockPos placeDoorExact(ServerWorld world, BlockPos exact, Direction facing,
+                                          BlockPortalDoor.DoorType type, @Nullable PortalRef mainLink) {
+        world.getChunk(exact);
         if (!canPlaceDoorSafely(world, exact)) {
             return null;
         }
         return placeDoorAt(world, exact, facing, type, mainLink);
     }
 
-    /**
-     * Non-exact: search near prefer for a safe spot; never clears solid blocks or builds platforms.
-     */
     @Nullable
-    public static BlockPos placeDoorSafeNear(WorldServer world, BlockPos prefer, EnumFacing facing,
-                                             BlockPortalDoor.EnumType type, @Nullable PortalRef mainLink) {
+    public static BlockPos placeDoorSafeNear(ServerWorld world, BlockPos prefer, Direction facing,
+                                             BlockPortalDoor.DoorType type, @Nullable PortalRef mainLink) {
         BlockPos base = findSafeDoorPos(world, prefer, SAFE_SEARCH_RADIUS);
         if (base == null) {
             return null;
@@ -52,43 +45,42 @@ public final class PortalDoorPlacer {
     }
 
     @Nullable
-    public static BlockPos placeDoorAt(WorldServer world, BlockPos base, EnumFacing facing,
-                                       BlockPortalDoor.EnumType type, @Nullable PortalRef mainLink) {
-        if (base.getY() < 1 || base.getY() >= world.getHeight() - 2) {
+    public static BlockPos placeDoorAt(ServerWorld world, BlockPos base, Direction facing,
+                                       BlockPortalDoor.DoorType type, @Nullable PortalRef mainLink) {
+        if (base.getY() < 1 || base.getY() >= world.getMaxBuildHeight() - 2) {
             return null;
         }
 
-        ensureFoothold(world, base.down());
+        ensureFoothold(world, base.below());
 
-        IBlockState lower = ModBlocks.PORTAL_DOOR.getDefaultState()
-                .withProperty(BlockPortalDoor.FACING, facing)
-                .withProperty(BlockPortalDoor.HALF, BlockPortalDoor.EnumHalf.LOWER)
-                .withProperty(BlockPortalDoor.TYPE, type);
-        IBlockState upper = ModBlocks.PORTAL_DOOR.getDefaultState()
-                .withProperty(BlockPortalDoor.FACING, facing)
-                .withProperty(BlockPortalDoor.HALF, BlockPortalDoor.EnumHalf.UPPER)
-                .withProperty(BlockPortalDoor.TYPE, type);
+        BlockState lower = ModBlocks.PORTAL_DOOR.get().defaultBlockState()
+                .setValue(BlockPortalDoor.FACING, facing)
+                .setValue(BlockPortalDoor.HALF, BlockPortalDoor.Half.LOWER)
+                .setValue(BlockPortalDoor.TYPE, type);
+        BlockState upper = ModBlocks.PORTAL_DOOR.get().defaultBlockState()
+                .setValue(BlockPortalDoor.FACING, facing)
+                .setValue(BlockPortalDoor.HALF, BlockPortalDoor.Half.UPPER)
+                .setValue(BlockPortalDoor.TYPE, type);
 
-        world.setBlockState(base, lower, 3);
-        world.setBlockState(base.up(), upper, 3);
+        world.setBlock(base, lower, 3);
+        world.setBlock(base.above(), upper, 3);
 
-        TileEntity te = world.getTileEntity(base);
+        TileEntity te = world.getBlockEntity(base);
         if (te instanceof TileEntityPortalDoor) {
             TileEntityPortalDoor portal = (TileEntityPortalDoor) te;
-            if (type == BlockPortalDoor.EnumType.SUB && mainLink != null) {
+            if (type == BlockPortalDoor.DoorType.SUB && mainLink != null) {
                 portal.setupAsSub(mainLink.dim, mainLink.pos);
                 PortalNetworkData data = PortalNetworkData.get();
                 if (data != null) {
-                    data.registerSub(mainLink, new PortalRef(world.provider.getDimension(), base));
+                    data.registerSub(mainLink, new PortalRef(DimUtil.levelKey(world), base));
                 }
             }
         }
         return base;
     }
 
-    /** Prefer standing in front of the door; fall back to the door cell if the front is unsafe. */
-    public static BlockPos playerStandPos(World world, BlockPos doorLower, EnumFacing facing) {
-        BlockPos front = doorLower.offset(facing);
+    public static BlockPos playerStandPos(World world, BlockPos doorLower, Direction facing) {
+        BlockPos front = doorLower.relative(facing);
         if (canStandPlayer(world, front)) {
             return front;
         }
@@ -99,35 +91,29 @@ public final class PortalDoorPlacer {
     }
 
     public static boolean canStandPlayer(World world, BlockPos feet) {
-        BlockPos head = feet.up();
-        BlockPos ground = feet.down();
+        BlockPos head = feet.above();
+        BlockPos ground = feet.below();
         if (isLiquid(world, feet) || isLiquid(world, head) || isLiquid(world, ground)) {
             return false;
         }
-        IBlockState groundState = world.getBlockState(ground);
-        if (!groundState.isSideSolid(world, ground, EnumFacing.UP) || groundState.getMaterial().isLiquid()) {
+        BlockState groundState = world.getBlockState(ground);
+        if (!groundState.isFaceSturdy(world, ground, Direction.UP) || groundState.getMaterial().isLiquid()) {
             return false;
         }
-        if (blocksMovementSolid(world, feet) || blocksMovementSolid(world, head)) {
-            return false;
-        }
-        return true;
+        return !blocksMovementSolid(world, feet) && !blocksMovementSolid(world, head);
     }
 
     private static boolean blocksMovementSolid(World world, BlockPos pos) {
-        IBlockState state = world.getBlockState(pos);
-        if (state.getBlock() == ModBlocks.PORTAL_DOOR) {
+        BlockState state = world.getBlockState(pos);
+        if (state.getBlock() == ModBlocks.PORTAL_DOOR.get()) {
             return false;
         }
-        return state.getMaterial().blocksMovement() && !state.getBlock().isPassable(world, pos);
+        return state.getMaterial().blocksMotion() && !state.getBlock().isPossibleToRespawnInThis();
     }
 
-    /**
-     * Find nearest position where a 2-high door can stand safely (no block breaking needed).
-     */
     @Nullable
-    public static BlockPos findSafeDoorPos(WorldServer world, BlockPos prefer, int radius) {
-        world.getChunkFromBlockCoords(prefer);
+    public static BlockPos findSafeDoorPos(ServerWorld world, BlockPos prefer, int radius) {
+        world.getChunk(prefer);
 
         int minY = verticalMin(world);
         int maxY = verticalMax(world);
@@ -152,7 +138,7 @@ public final class PortalDoorPlacer {
                     if (found == null) {
                         continue;
                     }
-                    double dist = found.distanceSq(prefer);
+                    double dist = found.distSqr(prefer);
                     if (dist < bestDist) {
                         bestDist = dist;
                         best = found;
@@ -170,7 +156,7 @@ public final class PortalDoorPlacer {
     }
 
     @Nullable
-    private static BlockPos scanColumn(WorldServer world, int x, int z, int preferY, int minY, int maxY) {
+    private static BlockPos scanColumn(ServerWorld world, int x, int z, int preferY, int minY, int maxY) {
         for (int y = preferY; y >= minY; y--) {
             BlockPos pos = new BlockPos(x, y, z);
             if (canPlaceDoorSafely(world, pos)) {
@@ -196,22 +182,20 @@ public final class PortalDoorPlacer {
         FIRE
     }
 
-    /** Place obsidian-turf foothold when ground is missing or liquid. */
-    public static void ensureFoothold(WorldServer world, BlockPos ground) {
-        IBlockState g = world.getBlockState(ground);
-        boolean need = !g.isSideSolid(world, ground, EnumFacing.UP) || g.getMaterial().isLiquid();
+    public static void ensureFoothold(ServerWorld world, BlockPos ground) {
+        BlockState g = world.getBlockState(ground);
+        boolean need = !g.isFaceSturdy(world, ground, Direction.UP) || g.getMaterial().isLiquid();
         if (need) {
-            world.setBlockState(ground, ModBlocks.OBSIDIAN_TURF.getDefaultState(), 3);
+            world.setBlock(ground, ModBlocks.OBSIDIAN_TURF.get().defaultBlockState(), 3);
         }
     }
 
-    /** Diagnose why a portal cannot be placed safely at {@code pos} (lower half). */
     public static PlaceHazard diagnose(World world, BlockPos pos) {
         if (pos.getY() < verticalMin(world) || pos.getY() > verticalMax(world)) {
             return PlaceHazard.OUT_OF_BOUNDS;
         }
-        BlockPos head = pos.up();
-        BlockPos ground = pos.down();
+        BlockPos head = pos.above();
+        BlockPos ground = pos.below();
         if (isLava(world, pos) || isLava(world, head) || isLava(world, ground)) {
             return PlaceHazard.LAVA;
         }
@@ -219,14 +203,14 @@ public final class PortalDoorPlacer {
             return PlaceHazard.FLOODED;
         }
         Material gm = world.getBlockState(ground).getMaterial();
-        if (gm == Material.FIRE || gm == Material.CACTUS) {
+        if (gm.isFlammable() || gm == Material.CACTUS) {
             return PlaceHazard.FIRE;
         }
         if (!isFreeForPortal(world, pos) || !isFreeForPortal(world, head)) {
             return PlaceHazard.WALL;
         }
-        if (!world.getBlockState(ground).isSideSolid(world, ground, EnumFacing.UP)
-                || world.getBlockState(ground).getMaterial().isLiquid()) {
+        BlockState groundState = world.getBlockState(ground);
+        if (!groundState.isFaceSturdy(world, ground, Direction.UP) || groundState.getMaterial().isLiquid()) {
             return PlaceHazard.NONE;
         }
         return PlaceHazard.NONE;
@@ -236,57 +220,55 @@ public final class PortalDoorPlacer {
         return diagnose(world, pos) == PlaceHazard.NONE;
     }
 
-    /**
-     * Force-place by clearing the two portal cells (does not build a floor).
-     */
     @Nullable
-    public static BlockPos placeDoorForced(WorldServer world, BlockPos exact, EnumFacing facing,
-                                           BlockPortalDoor.EnumType type, @Nullable PortalRef mainLink) {
-        if (exact.getY() < 1 || exact.getY() >= world.getHeight() - 2) {
+    public static BlockPos placeDoorForced(ServerWorld world, BlockPos exact, Direction facing,
+                                           BlockPortalDoor.DoorType type, @Nullable PortalRef mainLink) {
+        if (exact.getY() < 1 || exact.getY() >= world.getMaxBuildHeight() - 2) {
             return null;
         }
-        world.getChunkFromBlockCoords(exact);
-        world.setBlockToAir(exact);
-        world.setBlockToAir(exact.up());
+        world.getChunk(exact);
+        world.removeBlock(exact, false);
+        world.removeBlock(exact.above(), false);
         return placeDoorAt(world, exact, facing, type, mainLink);
     }
 
     private static boolean isWater(World world, BlockPos pos) {
-        Material m = world.getBlockState(pos).getMaterial();
-        return m == Material.WATER || (m.isLiquid() && m != Material.LAVA);
+        BlockState state = world.getBlockState(pos);
+        return state.getMaterial() == Material.WATER || state.getFluidState().getType() == Fluids.WATER;
     }
 
     private static boolean isLava(World world, BlockPos pos) {
-        return world.getBlockState(pos).getMaterial() == Material.LAVA;
+        BlockState state = world.getBlockState(pos);
+        return state.getMaterial() == Material.LAVA || state.getFluidState().getType() == Fluids.LAVA;
     }
 
     private static boolean isFreeForPortal(World world, BlockPos pos) {
-        IBlockState state = world.getBlockState(pos);
+        BlockState state = world.getBlockState(pos);
         if (isLiquid(world, pos)) {
             return false;
         }
-        return state.getBlock().isReplaceable(world, pos);
+        return state.isAir(world, pos) || state.getMaterial().isReplaceable();
     }
 
     private static boolean isLiquid(World world, BlockPos pos) {
-        Material m = world.getBlockState(pos).getMaterial();
-        return m.isLiquid() || m == Material.WATER || m == Material.LAVA;
+        BlockState state = world.getBlockState(pos);
+        return state.getMaterial().isLiquid() || !state.getFluidState().isEmpty();
     }
 
     private static int verticalMin(World world) {
-        if (world.provider.getDimension() == -1) {
+        if (DimUtil.isNether(DimUtil.levelKey(world))) {
             return 32;
         }
         return 1;
     }
 
     private static int verticalMax(World world) {
-        if (world.provider.getDimension() == -1) {
-            return Math.min(world.getActualHeight() - 3, 120);
+        if (DimUtil.isNether(DimUtil.levelKey(world))) {
+            return Math.min(world.getMaxBuildHeight() - 3, 120);
         }
-        if (world.provider.getDimension() == 1) {
-            return Math.min(world.getActualHeight() - 3, 200);
+        if (DimUtil.isEnd(DimUtil.levelKey(world))) {
+            return Math.min(world.getMaxBuildHeight() - 3, 200);
         }
-        return Math.min(world.getActualHeight() - 3, 254);
+        return Math.min(world.getMaxBuildHeight() - 3, 254);
     }
 }

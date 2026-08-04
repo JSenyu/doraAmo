@@ -3,11 +3,13 @@ package com.doraamo.client;
 import com.doraamo.config.catalog.DisplayCatalog;
 import com.doraamo.util.LangKeys;
 import net.minecraft.client.resources.I18n;
+import net.minecraft.util.ResourceLocation;
 import net.minecraft.world.biome.Biome;
-import net.minecraftforge.fml.relauncher.Side;
-import net.minecraftforge.fml.relauncher.SideOnly;
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.api.distmarker.OnlyIn;
+import net.minecraftforge.registries.ForgeRegistries;
 
-@SideOnly(Side.CLIENT)
+@OnlyIn(Dist.CLIENT)
 public final class BiomeNames {
 
     private BiomeNames() {
@@ -15,7 +17,7 @@ public final class BiomeNames {
 
     public static String localize(Biome biome) {
         if (biome == null) {
-            return I18n.format(LangKeys.BIOME_UNKNOWN);
+            return I18n.get(LangKeys.BIOME_UNKNOWN);
         }
         return DisplayCatalog.displayBiome(biome);
     }

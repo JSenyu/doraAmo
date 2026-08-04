@@ -3,19 +3,19 @@ package com.doraamo.portal;
 import com.doraamo.DoraAmo;
 import com.doraamo.block.BlockPortalDoor;
 import com.doraamo.block.ModBlocks;
-import net.minecraft.block.state.IBlockState;
-import net.minecraft.nbt.NBTTagCompound;
-import net.minecraft.nbt.NBTTagList;
-import net.minecraft.nbt.NBTTagString;
+import com.doraamo.tileentity.TileEntityPortalDoor;
+import com.doraamo.util.DimUtil;
+import net.minecraft.block.BlockState;
+import net.minecraft.nbt.CompoundNBT;
+import net.minecraft.nbt.ListNBT;
+import net.minecraft.nbt.StringNBT;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.ChunkPos;
 import net.minecraft.world.World;
-import net.minecraft.world.WorldServer;
-import net.minecraft.world.storage.MapStorage;
+import net.minecraft.world.server.ServerWorld;
 import net.minecraft.world.storage.WorldSavedData;
-import net.minecraftforge.common.DimensionManager;
-import net.minecraftforge.fml.common.FMLCommonHandler;
+import net.minecraftforge.fml.server.ServerLifecycleHooks;
 
 import java.util.Collections;
 import java.util.HashMap;
@@ -23,63 +23,46 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
-/**
- * Global portal graph: main ↔ subs, plus pending sub breaks for unloaded chunks.
- * Stored on the overworld map storage so it survives restarts.
- */
 public class PortalNetworkData extends WorldSavedData {
 
     public static final String DATA_NAME = DoraAmo.MODID + "_portals";
 
-    private final Map<String, Set<String>> mainToSubs = new HashMap<String, Set<String>>();
-    private final Map<String, String> subToMain = new HashMap<String, String>();
-    private final Set<String> pendingBreak = new HashSet<String>();
+    private final Map<String, Set<String>> mainToSubs = new HashMap<>();
+    private final Map<String, String> subToMain = new HashMap<>();
+    private final Set<String> pendingBreak = new HashSet<>();
 
     public PortalNetworkData() {
         super(DATA_NAME);
     }
 
-    public PortalNetworkData(String name) {
-        super(name);
-    }
-
     public static PortalNetworkData get(MinecraftServer server) {
-        WorldServer overworld = server.getWorld(0);
-        MapStorage storage = overworld.getMapStorage();
-        PortalNetworkData data = (PortalNetworkData) storage.getOrLoadData(PortalNetworkData.class, DATA_NAME);
-        if (data == null) {
-            data = new PortalNetworkData();
-            storage.setData(DATA_NAME, data);
-        }
-        return data;
+        ServerWorld overworld = server.overworld();
+        return overworld.getDataStorage().computeIfAbsent(PortalNetworkData::new, DATA_NAME);
     }
 
     public static PortalNetworkData get() {
-        MinecraftServer server = FMLCommonHandler.instance().getMinecraftServerInstance();
-        if (server == null) {
-            return null;
-        }
-        return get(server);
+        MinecraftServer server = ServerLifecycleHooks.getCurrentServer();
+        return server == null ? null : get(server);
     }
 
-    /** One sub portal per dimension per main; replaces any previous binding in that dimension. */
+    @Override
+    public void load(CompoundNBT nbt) {
+        readFromNbt(nbt);
+    }
+
     public void registerSub(PortalRef main, PortalRef sub) {
         String mk = main.key();
         String sk = sub.key();
-        Set<String> set = mainToSubs.get(mk);
-        if (set == null) {
-            set = new HashSet<String>();
-            mainToSubs.put(mk, set);
-        }
+        Set<String> set = mainToSubs.computeIfAbsent(mk, k -> new HashSet<>());
 
-        java.util.List<String> replaced = new java.util.ArrayList<String>();
+        java.util.List<String> replaced = new java.util.ArrayList<>();
         for (String existing : set) {
             PortalRef other = PortalRef.parse(existing);
-            if (other.dim == sub.dim && !existing.equals(sk)) {
+            if (other.dim.equals(sub.dim) && !existing.equals(sk)) {
                 replaced.add(existing);
             }
         }
-        MinecraftServer server = FMLCommonHandler.instance().getMinecraftServerInstance();
+        MinecraftServer server = ServerLifecycleHooks.getCurrentServer();
         for (String oldSk : replaced) {
             set.remove(oldSk);
             subToMain.remove(oldSk);
@@ -92,28 +75,28 @@ public class PortalNetworkData extends WorldSavedData {
         set.add(sk);
         subToMain.put(sk, mk);
         pendingBreak.remove(sk);
-        markDirty();
+        setDirty();
     }
 
-    public boolean isValidSubDoor(WorldServer world, PortalRef sub, PortalRef expectedMain) {
-        if (!world.isBlockLoaded(sub.pos)) {
-            world.getChunkFromBlockCoords(sub.pos);
+    public boolean isValidSubDoor(ServerWorld world, PortalRef sub, PortalRef expectedMain) {
+        if (!world.isLoaded(sub.pos)) {
+            world.getChunk(sub.pos);
         }
-        IBlockState state = world.getBlockState(sub.pos);
-        if (state.getBlock() != ModBlocks.PORTAL_DOOR) {
+        BlockState state = world.getBlockState(sub.pos);
+        if (state.getBlock() != ModBlocks.PORTAL_DOOR.get()) {
             return false;
         }
-        if (state.getValue(BlockPortalDoor.TYPE) != BlockPortalDoor.EnumType.SUB) {
+        if (state.getValue(BlockPortalDoor.TYPE) != BlockPortalDoor.DoorType.SUB) {
             return false;
         }
-        if (state.getValue(BlockPortalDoor.HALF) != BlockPortalDoor.EnumHalf.LOWER) {
+        if (state.getValue(BlockPortalDoor.HALF) != BlockPortalDoor.Half.LOWER) {
             return false;
         }
-        net.minecraft.tileentity.TileEntity te = world.getTileEntity(sub.pos);
-        if (!(te instanceof com.doraamo.tileentity.TileEntityPortalDoor)) {
+        net.minecraft.tileentity.TileEntity te = world.getBlockEntity(sub.pos);
+        if (!(te instanceof TileEntityPortalDoor)) {
             return false;
         }
-        com.doraamo.tileentity.TileEntityPortalDoor portal = (com.doraamo.tileentity.TileEntityPortalDoor) te;
+        TileEntityPortalDoor portal = (TileEntityPortalDoor) te;
         return portal.isSubGate() && expectedMain.equals(portal.getMainRef());
     }
 
@@ -130,43 +113,28 @@ public class PortalNetworkData extends WorldSavedData {
             }
         }
         pendingBreak.remove(sk);
-        markDirty();
+        setDirty();
     }
 
-    public PortalRef getMainForSub(PortalRef sub) {
-        String mk = subToMain.get(sub.key());
-        return mk == null ? null : PortalRef.parse(mk);
-    }
-
-    public PortalRef findSubInDimension(PortalRef main, int dim) {
+    public PortalRef findSubInDimension(PortalRef main, String dim) {
         Set<String> set = mainToSubs.get(main.key());
         if (set == null) {
             return null;
         }
+        String norm = DimUtil.normalize(dim);
         for (String sk : set) {
             PortalRef sub = PortalRef.parse(sk);
-            if (sub.dim == dim && !pendingBreak.contains(sk)) {
+            if (sub.dim.equals(norm) && !pendingBreak.contains(sk)) {
                 return sub;
             }
         }
         return null;
     }
 
-    public Set<String> getSubs(PortalRef main) {
-        Set<String> set = mainToSubs.get(main.key());
-        if (set == null) {
-            return Collections.emptySet();
-        }
-        return new HashSet<String>(set);
-    }
-
-    /**
-     * Queue all bound subs for destruction; destroy immediately if chunk is loaded.
-     */
     public void destroySubsForMain(PortalRef main, MinecraftServer server) {
         Set<String> set = mainToSubs.remove(main.key());
         if (set == null || set.isEmpty()) {
-            markDirty();
+            setDirty();
             return;
         }
         for (String sk : set) {
@@ -174,33 +142,28 @@ public class PortalNetworkData extends WorldSavedData {
             pendingBreak.add(sk);
             tryBreakNow(PortalRef.parse(sk), server);
         }
-        markDirty();
+        setDirty();
     }
 
     public void tryBreakNow(PortalRef sub, MinecraftServer server) {
-        if (!DimensionManager.isDimensionRegistered(sub.dim)) {
-            return;
-        }
-        WorldServer world = server.getWorld(sub.dim);
-        if (world == null) {
-            return;
-        }
-        if (!world.isBlockLoaded(sub.pos)) {
+        ServerWorld world = DimUtil.getLevel(server, sub.dim);
+        if (world == null || !world.isLoaded(sub.pos)) {
             return;
         }
         breakSubDoor(world, sub.pos);
         pendingBreak.remove(sub.key());
-        markDirty();
+        setDirty();
     }
 
     public void onChunkLoad(World world, ChunkPos chunk) {
-        if (world.isRemote || pendingBreak.isEmpty()) {
+        if (world.isClientSide || pendingBreak.isEmpty()) {
             return;
         }
-        java.util.List<String> toBreak = new java.util.ArrayList<String>();
+        String worldDim = DimUtil.levelKey(world);
+        java.util.List<String> toBreak = new java.util.ArrayList<>();
         for (String sk : pendingBreak) {
             PortalRef ref = PortalRef.parse(sk);
-            if (ref.dim != world.provider.getDimension()) {
+            if (!ref.dim.equals(worldDim)) {
                 continue;
             }
             if ((ref.pos.getX() >> 4) != chunk.x || (ref.pos.getZ() >> 4) != chunk.z) {
@@ -208,31 +171,30 @@ public class PortalNetworkData extends WorldSavedData {
             }
             toBreak.add(sk);
         }
-        if (toBreak.isEmpty()) {
-            return;
-        }
         for (String sk : toBreak) {
             PortalRef ref = PortalRef.parse(sk);
             breakSubDoor(world, ref.pos);
             pendingBreak.remove(sk);
             subToMain.remove(sk);
         }
-        markDirty();
+        if (!toBreak.isEmpty()) {
+            setDirty();
+        }
     }
 
     public static void breakSubDoor(World world, BlockPos lower) {
-        IBlockState state = world.getBlockState(lower);
+        BlockState state = world.getBlockState(lower);
         boolean wasSuppress = BlockPortalDoor.suppressSubRepair;
         BlockPortalDoor.suppressSubRepair = true;
         try {
-            if (state.getBlock() == ModBlocks.PORTAL_DOOR) {
-                world.setBlockToAir(lower.up());
-                world.setBlockToAir(lower);
-                world.removeTileEntity(lower);
+            if (state.getBlock() == ModBlocks.PORTAL_DOOR.get()) {
+                world.removeBlock(lower.above(), false);
+                world.removeBlock(lower, false);
+                world.removeBlockEntity(lower);
             } else {
-                IBlockState up = world.getBlockState(lower.up());
-                if (up.getBlock() == ModBlocks.PORTAL_DOOR) {
-                    world.setBlockToAir(lower.up());
+                BlockState up = world.getBlockState(lower.above());
+                if (up.getBlock() == ModBlocks.PORTAL_DOOR.get()) {
+                    world.removeBlock(lower.above(), false);
                 }
             }
         } finally {
@@ -240,20 +202,19 @@ public class PortalNetworkData extends WorldSavedData {
         }
     }
 
-    @Override
-    public void readFromNBT(NBTTagCompound nbt) {
+    public void readFromNbt(CompoundNBT nbt) {
         mainToSubs.clear();
         subToMain.clear();
         pendingBreak.clear();
 
-        NBTTagList mains = nbt.getTagList("Mains", 10);
-        for (int i = 0; i < mains.tagCount(); i++) {
-            NBTTagCompound tag = mains.getCompoundTagAt(i);
+        ListNBT mains = nbt.getList("Mains", 10);
+        for (int i = 0; i < mains.size(); i++) {
+            CompoundNBT tag = mains.getCompound(i);
             String mk = tag.getString("Main");
-            Set<String> set = new HashSet<String>();
-            NBTTagList subs = tag.getTagList("Subs", 8);
-            for (int j = 0; j < subs.tagCount(); j++) {
-                String sk = subs.getStringTagAt(j);
+            Set<String> set = new HashSet<>();
+            ListNBT subs = tag.getList("Subs", 8);
+            for (int j = 0; j < subs.size(); j++) {
+                String sk = subs.getString(j);
                 set.add(sk);
                 subToMain.put(sk, mk);
             }
@@ -262,32 +223,32 @@ public class PortalNetworkData extends WorldSavedData {
             }
         }
 
-        NBTTagList pending = nbt.getTagList("PendingBreak", 8);
-        for (int i = 0; i < pending.tagCount(); i++) {
-            pendingBreak.add(pending.getStringTagAt(i));
+        ListNBT pending = nbt.getList("PendingBreak", 8);
+        for (int i = 0; i < pending.size(); i++) {
+            pendingBreak.add(pending.getString(i));
         }
     }
 
     @Override
-    public NBTTagCompound writeToNBT(NBTTagCompound compound) {
-        NBTTagList mains = new NBTTagList();
+    public CompoundNBT save(CompoundNBT compound) {
+        ListNBT mains = new ListNBT();
         for (Map.Entry<String, Set<String>> e : mainToSubs.entrySet()) {
-            NBTTagCompound tag = new NBTTagCompound();
-            tag.setString("Main", e.getKey());
-            NBTTagList subs = new NBTTagList();
+            CompoundNBT tag = new CompoundNBT();
+            tag.putString("Main", e.getKey());
+            ListNBT subs = new ListNBT();
             for (String sk : e.getValue()) {
-                subs.appendTag(new NBTTagString(sk));
+                subs.add(StringNBT.valueOf(sk));
             }
-            tag.setTag("Subs", subs);
-            mains.appendTag(tag);
+            tag.put("Subs", subs);
+            mains.add(tag);
         }
-        compound.setTag("Mains", mains);
+        compound.put("Mains", mains);
 
-        NBTTagList pending = new NBTTagList();
+        ListNBT pending = new ListNBT();
         for (String sk : pendingBreak) {
-            pending.appendTag(new NBTTagString(sk));
+            pending.add(StringNBT.valueOf(sk));
         }
-        compound.setTag("PendingBreak", pending);
+        compound.put("PendingBreak", pending);
         return compound;
     }
 }

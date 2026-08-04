@@ -1,68 +1,85 @@
 package com.doraamo.destination;
 
-import net.minecraft.nbt.NBTTagCompound;
+import com.doraamo.util.DimUtil;
+import net.minecraft.nbt.CompoundNBT;
+import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.math.BlockPos;
+import net.minecraftforge.registries.ForgeRegistries;
 
-/** Destination configuration stored on tuner item and main portal TE. */
+import javax.annotation.Nullable;
+
 public class DestinationSettings {
 
     public enum Mode {
-        /** Use portal-block coordinate scaling only (OW↔Nether movement factors). */
         SCALED,
         COORDS,
         BIOME,
         STRUCTURE
     }
 
-    public int dimensionId = 0;
+    public String dimension = DimUtil.OVERWORLD;
     public Mode mode = Mode.SCALED;
-    public int biomeId = 1;
+    public String biomeKey = "minecraft:plains";
     public String structureName = "Village";
     public int x;
     public int y = 64;
     public int z;
-    /** When true, teleport may force-clear cells to place the sub door. */
     public boolean forceUnsafe;
 
-    public NBTTagCompound writeToNBT(NBTTagCompound tag) {
-        tag.setInteger("Dim", dimensionId);
-        tag.setString("Mode", mode.name());
-        tag.setInteger("Biome", biomeId);
-        tag.setString("Structure", structureName == null ? "" : structureName);
-        tag.setInteger("X", x);
-        tag.setInteger("Y", y);
-        tag.setInteger("Z", z);
-        tag.setBoolean("Force", forceUnsafe);
+    public CompoundNBT writeToNBT(CompoundNBT tag) {
+        tag.putString("Dim", dimension == null ? "" : dimension);
+        tag.putString("Mode", mode.name());
+        tag.putString("Biome", biomeKey == null ? "minecraft:plains" : biomeKey);
+        tag.putString("Structure", structureName == null ? "" : structureName);
+        tag.putInt("X", x);
+        tag.putInt("Y", y);
+        tag.putInt("Z", z);
+        tag.putBoolean("Force", forceUnsafe);
         return tag;
     }
 
-    public static DestinationSettings fromNBT(NBTTagCompound tag) {
+    public static DestinationSettings fromNBT(CompoundNBT tag) {
         DestinationSettings s = new DestinationSettings();
         if (tag == null) {
             return s;
         }
-        s.dimensionId = tag.getInteger("Dim");
+        if (tag.contains("Dim")) {
+            if (tag.get("Dim").getId() == 8) {
+                s.dimension = DimUtil.normalize(tag.getString("Dim"));
+            } else {
+                s.dimension = DimUtil.fromLegacyInt(tag.getInt("Dim"));
+            }
+        } else if (tag.contains("TargetDim")) {
+            int dim = tag.getInt("TargetDim");
+            s.dimension = dim == Integer.MIN_VALUE ? "" : DimUtil.fromLegacyInt(dim);
+        }
         try {
             s.mode = Mode.valueOf(tag.getString("Mode"));
         } catch (Exception e) {
             s.mode = Mode.SCALED;
         }
-        s.biomeId = tag.getInteger("Biome");
+        if (tag.contains("Biome")) {
+            if (tag.get("Biome").getId() == 8) {
+                s.biomeKey = tag.getString("Biome");
+            } else {
+                int biomeId = tag.getInt("Biome");
+                s.biomeKey = biomeKeyFromLegacyId(biomeId);
+            }
+        }
         s.structureName = tag.getString("Structure");
         if (s.structureName == null || s.structureName.isEmpty()) {
             s.structureName = "Village";
         }
-        s.x = tag.getInteger("X");
-        s.y = tag.hasKey("Y") ? tag.getInteger("Y") : 64;
-        s.z = tag.getInteger("Z");
+        s.x = tag.getInt("X");
+        s.y = tag.contains("Y") ? tag.getInt("Y") : 64;
+        s.z = tag.getInt("Z");
         s.forceUnsafe = tag.getBoolean("Force");
         return s;
     }
 
-    /** Legacy: only a dimension id was stored on the TE. */
-    public static DestinationSettings scaled(int dimensionId) {
+    public static DestinationSettings scaled(String dimension) {
         DestinationSettings s = new DestinationSettings();
-        s.dimensionId = dimensionId;
+        s.dimension = DimUtil.normalize(dimension);
         s.mode = Mode.SCALED;
         return s;
     }
@@ -72,6 +89,17 @@ public class DestinationSettings {
     }
 
     public DestinationSettings copy() {
-        return fromNBT(writeToNBT(new NBTTagCompound()));
+        return fromNBT(writeToNBT(new CompoundNBT()));
+    }
+
+    private static String biomeKeyFromLegacyId(int id) {
+        int index = 0;
+        for (net.minecraft.world.biome.Biome biome : ForgeRegistries.BIOMES.getValues()) {
+            if (index++ == id) {
+                ResourceLocation key = ForgeRegistries.BIOMES.getKey(biome);
+                return key != null ? key.toString() : "minecraft:plains";
+            }
+        }
+        return "minecraft:plains";
     }
 }

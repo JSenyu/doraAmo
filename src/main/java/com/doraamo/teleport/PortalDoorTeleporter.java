@@ -1,86 +1,73 @@
 package com.doraamo.teleport;
 
 import com.doraamo.portal.PortalDoorPlacer;
+import com.doraamo.util.DimUtil;
+import net.minecraft.block.PortalInfo;
 import net.minecraft.entity.Entity;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.MathHelper;
-import net.minecraft.world.World;
-import net.minecraft.world.WorldServer;
+import net.minecraft.util.math.vector.Vector3d;
+import net.minecraft.world.server.ServerWorld;
 import net.minecraftforge.common.util.ITeleporter;
 
 import javax.annotation.Nullable;
+import java.util.function.Function;
 
-/**
- * Places the player after dimension change.
- * Landing positions are absolute; coordinate scaling is done by callers via {@link #scalePortalPos}.
- */
 public class PortalDoorTeleporter implements ITeleporter {
 
-    /**
-     * Resolve destination XZ from a source portal block using vanilla movement factors.
-     */
-    public static BlockPos scalePortalPos(WorldServer from, WorldServer to, BlockPos portalPos) {
-        if (to.provider.getDimension() == 1) {
-            BlockPos spawn = to.provider.getSpawnCoordinate();
+    public static BlockPos scalePortalPos(ServerWorld from, ServerWorld to, BlockPos portalPos) {
+        if (DimUtil.isEnd(DimUtil.levelKey(to))) {
+            BlockPos spawn = to.getSharedSpawnPos();
             return spawn != null ? spawn : new BlockPos(100, 50, 0);
         }
-        double scale = from.provider.getMovementFactor() / to.provider.getMovementFactor();
+        double scale = DimUtil.coordinateScale(from) / DimUtil.coordinateScale(to);
         int x = MathHelper.floor(portalPos.getX() * scale);
         int z = MathHelper.floor(portalPos.getZ() * scale);
-        int y = MathHelper.clamp(portalPos.getY(), 1, to.getHeight() - 3);
-        if (to.provider.getDimension() == -1) {
+        int y = MathHelper.clamp(portalPos.getY(), 1, to.getMaxBuildHeight() - 3);
+        if (DimUtil.isNether(DimUtil.levelKey(to))) {
             y = MathHelper.clamp(y, 32, 120);
         }
         return new BlockPos(x, y, z);
     }
 
-    /**
-     * Find a safe door-anchor near the given coordinate. Never destroys blocks or builds platforms.
-     */
     @Nullable
-    public static BlockPos findLandingFromPortal(WorldServer world, BlockPos scaledPortalPos) {
+    public static BlockPos findLandingFromPortal(ServerWorld world, BlockPos scaledPortalPos) {
         return PortalDoorPlacer.findSafeDoorPos(world, scaledPortalPos, PortalDoorPlacer.SAFE_SEARCH_RADIUS);
     }
 
     @Nullable
     private final BlockPos absoluteLanding;
-    private BlockPos lastLandingPos;
 
-    public PortalDoorTeleporter(WorldServer world) {
+    public PortalDoorTeleporter(ServerWorld world) {
         this.absoluteLanding = null;
     }
 
-    public PortalDoorTeleporter(WorldServer world, BlockPos absoluteLanding) {
+    public PortalDoorTeleporter(ServerWorld world, BlockPos absoluteLanding) {
         this.absoluteLanding = absoluteLanding;
     }
 
-    public BlockPos getLastLandingPos() {
-        return lastLandingPos;
+    @Override
+    public PortalInfo getPortalInfo(Entity entity, ServerWorld destWorld,
+                                    Function<ServerWorld, PortalInfo> defaultPortalInfo) {
+        BlockPos land = absoluteLanding;
+        if (land == null) {
+            int x = MathHelper.floor(entity.getX());
+            int z = MathHelper.floor(entity.getZ());
+            int y = MathHelper.floor(entity.getY());
+            land = PortalDoorPlacer.findSafeDoorPos(destWorld, new BlockPos(x, y, z), PortalDoorPlacer.SAFE_SEARCH_RADIUS);
+            if (land == null) {
+                land = new BlockPos(x, MathHelper.clamp(y, 1, destWorld.getMaxBuildHeight() - 3), z);
+            }
+        }
+        return new PortalInfo(
+                new Vector3d(land.getX() + 0.5D, land.getY(), land.getZ() + 0.5D),
+                Vector3d.ZERO,
+                entity.yRot,
+                entity.xRot);
     }
 
     @Override
-    public void placeEntity(World worldIn, Entity entity, float yaw) {
-        entity.motionX = 0.0D;
-        entity.motionY = 0.0D;
-        entity.motionZ = 0.0D;
-        entity.fallDistance = 0.0F;
-
-        if (absoluteLanding != null) {
-            BlockPos land = absoluteLanding;
-            entity.setPositionAndUpdate(land.getX() + 0.5D, land.getY(), land.getZ() + 0.5D);
-            lastLandingPos = land;
-            return;
-        }
-
-        int x = MathHelper.floor(entity.posX);
-        int z = MathHelper.floor(entity.posZ);
-        int y = MathHelper.floor(entity.posY);
-        BlockPos found = PortalDoorPlacer.findSafeDoorPos(
-                (WorldServer) worldIn, new BlockPos(x, y, z), PortalDoorPlacer.SAFE_SEARCH_RADIUS);
-        if (found == null) {
-            found = new BlockPos(x, MathHelper.clamp(y, 1, worldIn.getHeight() - 3), z);
-        }
-        lastLandingPos = found;
-        entity.setPositionAndUpdate(found.getX() + 0.5D, found.getY(), found.getZ() + 0.5D);
+    public boolean isVanilla() {
+        return false;
     }
 }

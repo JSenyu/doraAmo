@@ -1,0 +1,16 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "DOD",
+    "OHO",
+    "DOD"
+  ],
+  "key": {
+    "D": { "item": "minecraft:diamond" },
+    "O": { "item": "minecraft:obsidian" },
+    "H": { "item": "minecraft:dragon_head" }
+  },
+  "result": {
+    "item": "doraamo:portal_door"
+  }
+}

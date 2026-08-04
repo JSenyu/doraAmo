@@ -1,7 +1,7 @@
 {
   "textures": {
-    "particle": "doraamo:blocks/portal_sub_upper",
-    "portal": "doraamo:blocks/portal_sub_upper"
+    "particle": "doraamo:block/portal_sub_upper",
+    "portal": "doraamo:block/portal_sub_upper"
   },
   "elements": [
     {
