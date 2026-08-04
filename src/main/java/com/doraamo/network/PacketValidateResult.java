@@ -1,18 +1,15 @@
 package com.doraamo.network;
 
-import com.doraamo.client.GuiPortalTuner;
 import com.doraamo.portal.PortalDoorPlacer;
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.FriendlyByteBuf;
 
 public class PacketValidateResult {
 
-    private boolean found;
-    private int x;
-    private int y;
-    private int z;
-    private int hazardOrdinal;
+    public boolean found;
+    public int x;
+    public int y;
+    public int z;
+    public int hazardOrdinal;
 
     public PacketValidateResult() {
     }
@@ -45,16 +42,5 @@ public class PacketValidateResult {
         msg.z = buf.readInt();
         msg.hazardOrdinal = buf.readByte() & 0xFF;
         return msg;
-    }
-
-    public static void handleClient(PacketValidateResult message) {
-        Screen screen = Minecraft.getInstance().screen;
-        if (screen instanceof GuiPortalTuner tuner) {
-            PortalDoorPlacer.PlaceHazard[] values = PortalDoorPlacer.PlaceHazard.values();
-            PortalDoorPlacer.PlaceHazard hazard = message.hazardOrdinal < values.length
-                    ? values[message.hazardOrdinal]
-                    : PortalDoorPlacer.PlaceHazard.WALL;
-            tuner.onValidateResult(message.found, message.x, message.y, message.z, hazard);
-        }
     }
 }

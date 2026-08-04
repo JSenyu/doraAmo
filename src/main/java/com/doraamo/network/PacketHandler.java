@@ -1,7 +1,6 @@
 package com.doraamo.network;
 
 import com.doraamo.DoraAmo;
-import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.fabricmc.fabric.api.networking.v1.PacketByteBufs;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.network.FriendlyByteBuf;
@@ -26,25 +25,6 @@ public final class PacketHandler {
             PacketValidateTuner msg = PacketValidateTuner.decode(buf);
             server.execute(() -> PacketValidateTuner.handle(msg, player));
         });
-    }
-
-    public static void initClient() {
-        ClientPlayNetworking.registerGlobalReceiver(VALIDATE_RESULT, (client, handler, buf, responseSender) -> {
-            PacketValidateResult msg = PacketValidateResult.decode(buf);
-            client.execute(() -> PacketValidateResult.handleClient(msg));
-        });
-    }
-
-    public static void sendToServer(PacketSaveTuner msg) {
-        FriendlyByteBuf buf = PacketByteBufs.create();
-        PacketSaveTuner.encode(msg, buf);
-        ClientPlayNetworking.send(SAVE_TUNER, buf);
-    }
-
-    public static void sendToServer(PacketValidateTuner msg) {
-        FriendlyByteBuf buf = PacketByteBufs.create();
-        PacketValidateTuner.encode(msg, buf);
-        ClientPlayNetworking.send(VALIDATE_TUNER, buf);
     }
 
     public static void sendToPlayer(ServerPlayer player, PacketValidateResult msg) {

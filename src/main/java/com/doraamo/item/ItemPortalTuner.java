@@ -2,13 +2,11 @@ package com.doraamo.item;
 
 import com.doraamo.block.BlockPortalDoor;
 import com.doraamo.block.ModBlocks;
-import com.doraamo.client.GuiPortalTuner;
+import com.doraamo.client.ClientHooks;
 import com.doraamo.destination.DestinationSettings;
 import com.doraamo.portal.PortalFinder;
 import com.doraamo.tileentity.TileEntityPortalDoor;
-import com.doraamo.util.DimUtil;
 import com.doraamo.util.LangKeys;
-import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
@@ -79,7 +77,7 @@ public class ItemPortalTuner extends Item {
                 draft.z = (int) Math.floor(player.getZ());
                 draft.dimension = player.level().dimension().location().toString();
             }
-            Minecraft.getInstance().setScreen(new GuiPortalTuner(hand, draft, base, bound != null));
+            ClientHooks.openTunerGui(hand, draft, base, bound != null);
         }
         return InteractionResult.SUCCESS;
     }
