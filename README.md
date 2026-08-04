@@ -17,9 +17,9 @@
 | [1.12.2-forge](https://github.com/JSenyu/doraAmo/tree/1.12.2-forge) | Minecraft 1.12.2 · Forge | 可用 |
 | [1.16.5-forge](https://github.com/JSenyu/doraAmo/tree/1.16.5-forge) | Minecraft 1.16.5 · Forge | 可用 |
 | [1.20.1-neoforge](https://github.com/JSenyu/doraAmo/tree/1.20.1-neoforge) | Minecraft 1.20.1 · Forge (NeoForged MDG) | 可用 |
-| [1.20.1-fabric](https://github.com/JSenyu/doraAmo/tree/1.20.1-fabric) | Minecraft 1.20.1 · Fabric | 移植中 |
+| [1.20.1-fabric](https://github.com/JSenyu/doraAmo/tree/1.20.1-fabric) | Minecraft 1.20.1 · Fabric | 可用 |
 | [1.21.1-neoforge](https://github.com/JSenyu/doraAmo/tree/1.21.1-neoforge) | Minecraft 1.21.1 · NeoForge | 可用 |
-| [1.21.1-fabric](https://github.com/JSenyu/doraAmo/tree/1.21.1-fabric) | Minecraft 1.21.1 · Fabric | 移植中 |
+| [1.21.1-fabric](https://github.com/JSenyu/doraAmo/tree/1.21.1-fabric) | Minecraft 1.21.1 · Fabric | 可用 |
 
 当前默认分支 `main` 与 `1.12.2-forge` 对齐。
 
