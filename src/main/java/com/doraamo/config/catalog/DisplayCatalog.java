@@ -2,15 +2,16 @@ package com.doraamo.config.catalog;
 
 import com.doraamo.DoraAmo;
 import com.doraamo.destination.DestinationLocator;
+import com.doraamo.util.BiomeUtil;
 import com.doraamo.util.DimUtil;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import net.minecraft.core.RegistryAccess;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.level.biome.Biome;
-import net.minecraftforge.server.ServerLifecycleHooks;
-import net.minecraftforge.registries.ForgeRegistries;
+import net.neoforged.neoforge.server.ServerLifecycleHooks;
+import org.jetbrains.annotations.Nullable;
 
-import javax.annotation.Nullable;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
@@ -22,6 +23,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -122,11 +124,11 @@ public final class DisplayCatalog {
         return norm;
     }
 
-    public static String displayBiome(Biome biome) {
+    public static String displayBiome(RegistryAccess access, Biome biome) {
         if (biome == null) {
             return "?";
         }
-        ResourceLocation key = ForgeRegistries.BIOMES.getKey(biome);
+        ResourceLocation key = BiomeUtil.getKey(access, biome);
         String id = key != null ? key.toString() : "minecraft:plains";
         CatalogEntry e = get(Kind.BIOME, id);
         String named = e == null ? null : e.pickName(preferChinese);
@@ -221,20 +223,19 @@ public final class DisplayCatalog {
 
     private static boolean syncBiomes() {
         boolean changed = false;
-        List<ResourceLocation> keys = new ArrayList<>(ForgeRegistries.BIOMES.getKeys());
-        Collections.sort(keys, new java.util.Comparator<ResourceLocation>() {
-            @Override
-            public int compare(ResourceLocation a, ResourceLocation b) {
-                return a.toString().compareToIgnoreCase(b.toString());
-            }
-        });
-        for (ResourceLocation loc : keys) {
-            String key = loc.toString();
-            if (!biomes.entries.containsKey(key)) {
-                CatalogEntry entry = new CatalogEntry();
-                seedBiome(key, entry);
-                biomes.entries.put(key, entry);
-                changed = true;
+        if (ServerLifecycleHooks.getCurrentServer() != null) {
+            RegistryAccess access = ServerLifecycleHooks.getCurrentServer().overworld().registryAccess();
+            List<ResourceLocation> keys = new ArrayList<>();
+            access.registryOrThrow(net.minecraft.core.registries.Registries.BIOME).keySet().forEach(keys::add);
+            Collections.sort(keys, Comparator.comparing(ResourceLocation::toString, String.CASE_INSENSITIVE_ORDER));
+            for (ResourceLocation loc : keys) {
+                String key = loc.toString();
+                if (!biomes.entries.containsKey(key)) {
+                    CatalogEntry entry = new CatalogEntry();
+                    seedBiome(key, entry);
+                    biomes.entries.put(key, entry);
+                    changed = true;
+                }
             }
         }
         return changed;

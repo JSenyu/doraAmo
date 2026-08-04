@@ -1,14 +1,7 @@
 package com.doraamo.destination;
 
 import com.doraamo.util.DimUtil;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraftforge.registries.ForgeRegistries;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.util.Mth;
-import net.minecraft.world.level.biome.Biome;
-
-import javax.annotation.Nullable;
 
 public class DestinationSettings {
 
@@ -95,13 +88,17 @@ public class DestinationSettings {
     }
 
     private static String biomeKeyFromLegacyId(int id) {
-        int index = 0;
-        for (Biome biome : ForgeRegistries.BIOMES.getValues()) {
-            if (index++ == id) {
-                ResourceLocation key = ForgeRegistries.BIOMES.getKey(biome);
-                return key != null ? key.toString() : "minecraft:plains";
-            }
-        }
-        return "minecraft:plains";
+        return switch (id) {
+            case 0 -> "minecraft:plains";
+            case 1 -> "minecraft:desert";
+            case 2 -> "minecraft:mountains";
+            case 3 -> "minecraft:forest";
+            case 4 -> "minecraft:taiga";
+            case 5 -> "minecraft:swamp";
+            case 6 -> "minecraft:river";
+            case 7 -> "minecraft:nether_wastes";
+            case 8 -> "minecraft:the_end";
+            default -> "minecraft:plains";
+        };
     }
 }

@@ -4,13 +4,13 @@ import com.doraamo.block.ModBlocks;
 import com.doraamo.config.DimensionConfig;
 import com.doraamo.config.catalog.DisplayCatalog;
 import com.doraamo.item.ModItems;
-import com.doraamo.network.PacketHandler;
-import net.minecraftforge.eventbus.api.IEventBus;
-import net.minecraftforge.fml.common.Mod;
-import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
-import net.minecraftforge.fml.event.lifecycle.FMLLoadCompleteEvent;
-import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
-import net.minecraftforge.fml.loading.FMLPaths;
+import com.doraamo.network.ModPayloads;
+import net.neoforged.bus.api.IEventBus;
+import net.neoforged.fml.ModContainer;
+import net.neoforged.fml.common.Mod;
+import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent;
+import net.neoforged.fml.event.lifecycle.FMLLoadCompleteEvent;
+import net.neoforged.fml.loading.FMLPaths;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -32,9 +32,8 @@ public class DoraAmo {
 
     public static Logger logger;
 
-    public DoraAmo() {
+    public DoraAmo(IEventBus modBus, ModContainer modContainer) {
         logger = LogManager.getLogger();
-        IEventBus modBus = FMLJavaModLoadingContext.get().getModEventBus();
         ModBlocks.register(modBus);
         ModItems.register(modBus);
         modBus.addListener(this::commonSetup);
@@ -50,7 +49,7 @@ public class DoraAmo {
     }
 
     private void commonSetup(final FMLCommonSetupEvent event) {
-        event.enqueueWork(PacketHandler::init);
+        event.enqueueWork(ModPayloads::init); // handlers register via RegisterPayloadHandlersEvent
     }
 
     private void loadComplete(final FMLLoadCompleteEvent event) {

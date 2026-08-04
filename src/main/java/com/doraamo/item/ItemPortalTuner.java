@@ -10,6 +10,7 @@ import com.doraamo.util.DimUtil;
 import com.doraamo.util.LangKeys;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.component.DataComponents;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.InteractionHand;
@@ -18,28 +19,38 @@ import net.minecraft.world.InteractionResultHolder;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.component.CustomData;
 import net.minecraft.world.item.context.UseOnContext;
 import net.minecraft.world.level.Level;
-import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.fml.DistExecutor;
+import net.neoforged.fml.loading.FMLEnvironment;
 
 public class ItemPortalTuner extends Item {
+
+    private static final String DEST_KEY = "Dest";
 
     public ItemPortalTuner(Properties properties) {
         super(properties);
     }
 
     public static DestinationSettings getSettings(ItemStack stack) {
-        CompoundTag tag = stack.getTag();
-        if (tag != null && tag.contains("Dest")) {
-            return DestinationSettings.fromNBT(tag.getCompound("Dest"));
+        CustomData customData = stack.get(DataComponents.CUSTOM_DATA);
+        if (customData != null) {
+            CompoundTag tag = customData.copyTag();
+            if (tag.contains(DEST_KEY)) {
+                return DestinationSettings.fromNBT(tag.getCompound(DEST_KEY));
+            }
         }
         return new DestinationSettings();
     }
 
     public static void setSettings(ItemStack stack, DestinationSettings settings) {
-        CompoundTag tag = stack.getOrCreateTag();
-        tag.put("Dest", settings.writeToNBT(new CompoundTag()));
+        CompoundTag root = new CompoundTag();
+        CustomData existing = stack.get(DataComponents.CUSTOM_DATA);
+        if (existing != null) {
+            root = existing.copyTag();
+        }
+        root.put(DEST_KEY, settings.writeToNBT(new CompoundTag()));
+        stack.set(DataComponents.CUSTOM_DATA, CustomData.of(root));
     }
 
     @Override
@@ -88,8 +99,7 @@ public class ItemPortalTuner extends Item {
 
     private static void openGui(InteractionHand hand, ItemStack stack, BlockPos portalPos,
                                 DestinationSettings draft, boolean hasExistingBinding) {
-        DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> () ->
-                Minecraft.getInstance().setScreen(new GuiPortalTuner(hand, draft, portalPos, hasExistingBinding)));
+        Minecraft.getInstance().setScreen(new GuiPortalTuner(hand, draft, portalPos, hasExistingBinding));
     }
 
     @Override

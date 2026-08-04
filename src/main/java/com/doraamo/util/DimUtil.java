@@ -7,8 +7,8 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.Level;
+import org.jetbrains.annotations.Nullable;
 
-import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -37,16 +37,12 @@ public final class DimUtil {
     }
 
     public static String fromLegacyInt(int dim) {
-        switch (dim) {
-            case 0:
-                return OVERWORLD;
-            case -1:
-                return NETHER;
-            case 1:
-                return END;
-            default:
-                return Integer.toString(dim);
-        }
+        return switch (dim) {
+            case 0 -> OVERWORLD;
+            case -1 -> NETHER;
+            case 1 -> END;
+            default -> Integer.toString(dim);
+        };
     }
 
     public static int toLegacyInt(String dim) {
@@ -69,7 +65,7 @@ public final class DimUtil {
     public static ResourceKey<Level> worldKey(String dim) {
         ResourceLocation loc = ResourceLocation.tryParse(normalize(dim));
         if (loc == null) {
-            loc = new ResourceLocation(normalize(dim));
+            loc = ResourceLocation.parse(normalize(dim));
         }
         return ResourceKey.create(Registries.DIMENSION, loc);
     }

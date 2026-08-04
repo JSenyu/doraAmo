@@ -11,6 +11,7 @@
     "H": { "item": "minecraft:dragon_head" }
   },
   "result": {
-    "item": "doraamo:portal_door"
+    "id": "doraamo:portal_door",
+    "count": 1
   }
 }

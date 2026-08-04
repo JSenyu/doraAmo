@@ -4,9 +4,8 @@ import com.doraamo.config.DimensionConfig;
 import com.doraamo.config.catalog.DisplayCatalog;
 import com.doraamo.destination.DestinationLocator;
 import com.doraamo.destination.DestinationSettings;
-import com.doraamo.network.PacketHandler;
-import com.doraamo.network.PacketSaveTuner;
-import com.doraamo.network.PacketValidateTuner;
+import com.doraamo.network.SaveTunerPayload;
+import com.doraamo.network.ValidateTunerPayload;
 import com.doraamo.portal.PortalDoorPlacer;
 import com.doraamo.util.DimUtil;
 import com.doraamo.util.LangKeys;
@@ -18,14 +17,15 @@ import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.biome.Biome;
-import net.minecraftforge.registries.ForgeRegistries;
+import com.doraamo.util.BiomeUtil;
+import net.minecraft.core.RegistryAccess;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.world.InteractionHand;
-import net.minecraft.world.level.biome.Biome;
-import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.api.distmarker.OnlyIn;
+import net.neoforged.api.distmarker.Dist;
+import net.neoforged.api.distmarker.OnlyIn;
+import net.neoforged.neoforge.network.PacketDistributor;
 import org.lwjgl.glfw.GLFW;
 
 import java.util.ArrayList;
@@ -204,8 +204,9 @@ public class GuiPortalTuner extends Screen {
         String filter = filterField != null ? filterField.getValue() : lastFilterText;
 
         if (settings.mode == DestinationSettings.Mode.BIOME) {
-            for (Biome b : DestinationLocator.allBiomes()) {
-                ResourceLocation key = ForgeRegistries.BIOMES.getKey(b);
+            RegistryAccess access = minecraft.getConnection().registryAccess();
+            for (Biome b : DestinationLocator.allBiomes(access)) {
+                ResourceLocation key = BiomeUtil.getKey(access, b);
                 if (key == null) continue;
                 String reg = key.toString();
                 String label = BiomeNames.localize(b);
@@ -359,7 +360,8 @@ public class GuiPortalTuner extends Screen {
         }
         if (s.mode == DestinationSettings.Mode.BIOME) {
             ResourceLocation biomeLoc = ResourceLocation.tryParse(s.biomeKey.contains(":") ? s.biomeKey : "minecraft:" + s.biomeKey);
-            Biome biome = biomeLoc != null ? ForgeRegistries.BIOMES.getValue(biomeLoc) : null;
+            RegistryAccess access = minecraft.getConnection().registryAccess();
+            Biome biome = biomeLoc != null ? BiomeUtil.getBiome(access, biomeLoc) : null;
             String biomeName = biome != null ? BiomeNames.localize(biome) : s.biomeKey;
             return Component.translatable(LangKeys.GUI_BOUND_BIOME, dim, mode, biomeName).getString();
         }
@@ -373,10 +375,6 @@ public class GuiPortalTuner extends Screen {
 
     @Override
     public void tick() {
-        filterField.tick();
-        fieldX.tick();
-        fieldY.tick();
-        fieldZ.tick();
         if (filterField.visible) {
             String t = filterField.getValue();
             if (!t.equals(lastFilterText)) {
@@ -387,7 +385,8 @@ public class GuiPortalTuner extends Screen {
     }
 
     @Override
-    public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
+    public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
+        double delta = scrollY;
         int dir = delta > 0 ? -1 : 1;
         if (mouseX >= dimLeft && mouseX < dimLeft + dimW && mouseY >= dimTop && mouseY < dimTop + dimH) {
             dimScroll = clampScroll(dimScroll + dir, dimEntries.size(), dimRows);
@@ -400,7 +399,7 @@ public class GuiPortalTuner extends Screen {
             focus = FocusPanel.CONTENT;
             return true;
         }
-        return super.mouseScrolled(mouseX, mouseY, delta);
+        return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
     }
 
     private static int clampScroll(int scroll, int size, int rows) {
@@ -466,7 +465,7 @@ public class GuiPortalTuner extends Screen {
             settings.z = foundZ;
         }
         settings.forceUnsafe = force;
-        PacketHandler.CHANNEL.sendToServer(new PacketSaveTuner(hand, settings, portalPos, force));
+        PacketDistributor.sendToServer(new SaveTunerPayload(hand, settings, portalPos, force));
         minecraft.setScreen(null);
     }
 
@@ -497,7 +496,7 @@ public class GuiPortalTuner extends Screen {
         statusMessage = Component.translatable(LangKeys.GUI_STATUS_SEARCHING).getString();
         statusColor = 0xFFFF55;
         refreshWidgets();
-        PacketHandler.CHANNEL.sendToServer(new PacketValidateTuner(settings));
+        PacketDistributor.sendToServer(new ValidateTunerPayload(settings));
     }
 
     private void readCoordFields() {
@@ -592,7 +591,7 @@ public class GuiPortalTuner extends Screen {
 
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTicks) {
-        renderBackground(graphics);
+        renderBackground(graphics, mouseX, mouseY, partialTicks);
         graphics.drawCenteredString(font, title, width / 2, 6, 0xFFFFFF);
         String boundLine = hasExistingBinding
                 ? Component.translatable(LangKeys.GUI_BOUND_CURRENT, formatBinding(originalBinding)).getString()

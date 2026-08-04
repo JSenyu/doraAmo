@@ -6,25 +6,24 @@ import com.doraamo.portal.PortalDoorPlacer;
 import com.doraamo.util.DimUtil;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraftforge.network.NetworkEvent;
-import net.minecraftforge.network.PacketDistributor;
+import net.neoforged.neoforge.network.PacketDistributor;
+import net.neoforged.neoforge.network.handling.IPayloadContext;
 
-import java.util.function.Supplier;
+public record ValidateTunerPayload(DestinationSettings settings) implements CustomPacketPayload {
 
-public class PacketValidateTuner {
+    public static final Type<ValidateTunerPayload> TYPE = new Type<>(
+            ResourceLocation.fromNamespaceAndPath(com.doraamo.DoraAmo.MODID, "validate_tuner"));
 
-    private DestinationSettings settings = new DestinationSettings();
+    public static final StreamCodec<FriendlyByteBuf, ValidateTunerPayload> STREAM_CODEC = StreamCodec.of(
+            ValidateTunerPayload::write,
+            ValidateTunerPayload::read);
 
-    public PacketValidateTuner() {
-    }
-
-    public PacketValidateTuner(DestinationSettings settings) {
-        this.settings = settings;
-    }
-
-    public static void encode(PacketValidateTuner msg, FriendlyByteBuf buf) {
+    private static void write(FriendlyByteBuf buf, ValidateTunerPayload msg) {
         buf.writeUtf(msg.settings.dimension == null ? "" : msg.settings.dimension);
         buf.writeEnum(msg.settings.mode);
         buf.writeUtf(msg.settings.biomeKey == null ? "minecraft:plains" : msg.settings.biomeKey);
@@ -34,28 +33,25 @@ public class PacketValidateTuner {
         buf.writeInt(msg.settings.z);
     }
 
-    public static PacketValidateTuner decode(FriendlyByteBuf buf) {
-        PacketValidateTuner msg = new PacketValidateTuner();
-        msg.settings.dimension = DimUtil.normalize(buf.readUtf());
-        msg.settings.mode = buf.readEnum(DestinationSettings.Mode.class);
-        msg.settings.biomeKey = buf.readUtf();
-        msg.settings.structureName = buf.readUtf();
-        msg.settings.x = buf.readInt();
-        msg.settings.y = buf.readInt();
-        msg.settings.z = buf.readInt();
-        return msg;
+    private static ValidateTunerPayload read(FriendlyByteBuf buf) {
+        DestinationSettings settings = new DestinationSettings();
+        settings.dimension = DimUtil.normalize(buf.readUtf());
+        settings.mode = buf.readEnum(DestinationSettings.Mode.class);
+        settings.biomeKey = buf.readUtf();
+        settings.structureName = buf.readUtf();
+        settings.x = buf.readInt();
+        settings.y = buf.readInt();
+        settings.z = buf.readInt();
+        return new ValidateTunerPayload(settings);
     }
 
-    public static void handle(PacketValidateTuner msg, Supplier<NetworkEvent.Context> ctx) {
-        ctx.get().enqueueWork(() -> {
-            ServerPlayer player = ctx.get().getSender();
-            if (player == null) {
-                return;
-            }
+    public static void handle(ValidateTunerPayload msg, IPayloadContext ctx) {
+        ctx.enqueueWork(() -> {
+            ServerPlayer player = (ServerPlayer) ctx.player();
             DestinationSettings s = msg.settings;
             ServerLevel world = DimUtil.getLevel(player.getServer(), s.dimension);
             if (world == null) {
-                PacketHandler.CHANNEL.send(PacketDistributor.PLAYER.with(() -> player), PacketValidateResult.notFound());
+                PacketDistributor.sendToPlayer(player, ValidateResultPayload.notFound());
                 return;
             }
             BlockPos near = player.blockPosition();
@@ -74,7 +70,7 @@ public class PacketValidateTuner {
             }
             DestinationLocator.ValidateResult result = DestinationLocator.validate(world, near, s);
             if (!result.found || result.pos == null) {
-                PacketHandler.CHANNEL.send(PacketDistributor.PLAYER.with(() -> player), PacketValidateResult.notFound());
+                PacketDistributor.sendToPlayer(player, ValidateResultPayload.notFound());
                 return;
             }
             BlockPos placePos = result.pos;
@@ -88,9 +84,13 @@ public class PacketValidateTuner {
                 }
             }
             PortalDoorPlacer.PlaceHazard hazard = PortalDoorPlacer.diagnose(world, placePos);
-            PacketHandler.CHANNEL.send(PacketDistributor.PLAYER.with(() -> player),
-                    new PacketValidateResult(true, placePos.getX(), placePos.getY(), placePos.getZ(), hazard.ordinal()));
+            PacketDistributor.sendToPlayer(player,
+                    new ValidateResultPayload(true, placePos.getX(), placePos.getY(), placePos.getZ(), hazard.ordinal()));
         });
-        ctx.get().setPacketHandled(true);
+    }
+
+    @Override
+    public Type<? extends CustomPacketPayload> type() {
+        return TYPE;
     }
 }

@@ -19,9 +19,7 @@
         "-Dfml.modFolders\u003ddoraamo%%G:\\ITEM_MOD\\doraAmo\\bin\\main"
       ],
       "cwd": "${workspaceFolder}\\run",
-      "env": {
-        "MOD_CLASSES": "doraamo%%G:\\ITEM_MOD\\doraAmo\\bin\\main"
-      },
+      "env": {},
       "console": "internalConsole",
       "shortenCommandLine": "none"
     },
@@ -43,9 +41,7 @@
         "-Dfml.modFolders\u003ddoraamo%%G:\\ITEM_MOD\\doraAmo\\bin\\main"
       ],
       "cwd": "${workspaceFolder}\\run",
-      "env": {
-        "MOD_CLASSES": "doraamo%%G:\\ITEM_MOD\\doraAmo\\bin\\main"
-      },
+      "env": {},
       "console": "internalConsole",
       "shortenCommandLine": "none"
     },
@@ -67,9 +63,7 @@
         "-Dfml.modFolders\u003ddoraamo%%G:\\ITEM_MOD\\doraAmo\\bin\\main"
       ],
       "cwd": "${workspaceFolder}\\run",
-      "env": {
-        "MOD_CLASSES": "doraamo%%G:\\ITEM_MOD\\doraAmo\\bin\\main"
-      },
+      "env": {},
       "console": "internalConsole",
       "shortenCommandLine": "none"
     },
@@ -91,9 +85,7 @@
         "-Dfml.modFolders\u003ddoraamo%%G:\\ITEM_MOD\\doraAmo\\bin\\main"
       ],
       "cwd": "${workspaceFolder}\\run",
-      "env": {
-        "MOD_CLASSES": "doraamo%%G:\\ITEM_MOD\\doraAmo\\bin\\main"
-      },
+      "env": {},
       "console": "internalConsole",
       "shortenCommandLine": "none"
     }

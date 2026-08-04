@@ -2,11 +2,12 @@ package com.doraamo.client;
 
 import com.doraamo.config.catalog.DisplayCatalog;
 import com.doraamo.util.LangKeys;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.resources.language.I18n;
+import net.minecraft.core.RegistryAccess;
 import net.minecraft.world.level.biome.Biome;
-import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.api.distmarker.OnlyIn;
-import net.minecraftforge.registries.ForgeRegistries;
+import net.neoforged.api.distmarker.Dist;
+import net.neoforged.api.distmarker.OnlyIn;
 
 @OnlyIn(Dist.CLIENT)
 public final class BiomeNames {
@@ -18,6 +19,7 @@ public final class BiomeNames {
         if (biome == null) {
             return I18n.get(LangKeys.BIOME_UNKNOWN);
         }
-        return DisplayCatalog.displayBiome(biome);
+        RegistryAccess access = Minecraft.getInstance().getConnection().registryAccess();
+        return DisplayCatalog.displayBiome(access, biome);
     }
 }

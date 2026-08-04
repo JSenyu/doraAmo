@@ -11,31 +11,28 @@ import com.doraamo.util.LangKeys;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.item.ItemStack;
-import net.minecraftforge.network.NetworkEvent;
+import net.neoforged.neoforge.network.handling.IPayloadContext;
 
-import java.util.function.Supplier;
+public record SaveTunerPayload(
+        InteractionHand hand,
+        DestinationSettings settings,
+        BlockPos portalPos,
+        boolean force) implements CustomPacketPayload {
 
-public class PacketSaveTuner {
+    public static final Type<SaveTunerPayload> TYPE = new Type<>(
+            ResourceLocation.fromNamespaceAndPath(com.doraamo.DoraAmo.MODID, "save_tuner"));
 
-    private InteractionHand hand;
-    private DestinationSettings settings = new DestinationSettings();
-    private BlockPos portalPos = BlockPos.ZERO;
-    private boolean force;
+    public static final StreamCodec<FriendlyByteBuf, SaveTunerPayload> STREAM_CODEC = StreamCodec.of(
+            SaveTunerPayload::write,
+            SaveTunerPayload::read);
 
-    public PacketSaveTuner() {
-    }
-
-    public PacketSaveTuner(InteractionHand hand, DestinationSettings settings, BlockPos portalPos, boolean force) {
-        this.hand = hand;
-        this.settings = settings;
-        this.portalPos = portalPos;
-        this.force = force;
-    }
-
-    public static void encode(PacketSaveTuner msg, FriendlyByteBuf buf) {
+    private static void write(FriendlyByteBuf buf, SaveTunerPayload msg) {
         buf.writeEnum(msg.hand);
         buf.writeUtf(msg.settings.dimension == null ? "" : msg.settings.dimension);
         buf.writeEnum(msg.settings.mode);
@@ -48,28 +45,25 @@ public class PacketSaveTuner {
         buf.writeBoolean(msg.force);
     }
 
-    public static PacketSaveTuner decode(FriendlyByteBuf buf) {
-        PacketSaveTuner msg = new PacketSaveTuner();
-        msg.hand = buf.readEnum(InteractionHand.class);
-        msg.settings.dimension = DimUtil.normalize(buf.readUtf());
-        msg.settings.mode = buf.readEnum(DestinationSettings.Mode.class);
-        msg.settings.biomeKey = buf.readUtf();
-        msg.settings.structureName = buf.readUtf();
-        msg.settings.x = buf.readInt();
-        msg.settings.y = buf.readInt();
-        msg.settings.z = buf.readInt();
-        msg.portalPos = buf.readBlockPos();
-        msg.force = buf.readBoolean();
-        msg.settings.forceUnsafe = msg.force;
-        return msg;
+    private static SaveTunerPayload read(FriendlyByteBuf buf) {
+        InteractionHand hand = buf.readEnum(InteractionHand.class);
+        DestinationSettings settings = new DestinationSettings();
+        settings.dimension = DimUtil.normalize(buf.readUtf());
+        settings.mode = buf.readEnum(DestinationSettings.Mode.class);
+        settings.biomeKey = buf.readUtf();
+        settings.structureName = buf.readUtf();
+        settings.x = buf.readInt();
+        settings.y = buf.readInt();
+        settings.z = buf.readInt();
+        BlockPos portalPos = buf.readBlockPos();
+        boolean force = buf.readBoolean();
+        settings.forceUnsafe = force;
+        return new SaveTunerPayload(hand, settings, portalPos, force);
     }
 
-    public static void handle(PacketSaveTuner msg, Supplier<NetworkEvent.Context> ctx) {
-        ctx.get().enqueueWork(() -> {
-            ServerPlayer player = ctx.get().getSender();
-            if (player == null) {
-                return;
-            }
+    public static void handle(SaveTunerPayload msg, IPayloadContext ctx) {
+        ctx.enqueueWork(() -> {
+            ServerPlayer player = (ServerPlayer) ctx.player();
             ItemStack stack = player.getItemInHand(msg.hand);
             if (stack.getItem() != ModItems.PORTAL_TUNER.get()) {
                 return;
@@ -94,6 +88,10 @@ public class PacketSaveTuner {
                 player.displayClientMessage(Component.translatable(LangKeys.TUNER_APPLIED), true);
             }
         });
-        ctx.get().setPacketHandled(true);
+    }
+
+    @Override
+    public Type<? extends CustomPacketPayload> type() {
+        return TYPE;
     }
 }

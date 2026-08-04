@@ -15,8 +15,8 @@ import com.doraamo.util.LangKeys;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.network.Connection;
 import net.minecraft.network.chat.Component;
+import net.minecraft.core.HolderLookup;
 import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
@@ -25,10 +25,9 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.portal.PortalInfo;
-import net.minecraftforge.fml.util.ObfuscationReflectionHelper;
-
-import javax.annotation.Nullable;
+import net.minecraft.world.phys.Vec3;
+import net.neoforged.fml.util.ObfuscationReflectionHelper;
+import org.jetbrains.annotations.Nullable;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
@@ -198,13 +197,12 @@ public class TileEntityPortalDoor extends BlockEntity {
             }
         }
 
-        PortalDoorTeleporter teleporter = new PortalDoorTeleporter(targetWorld, land);
         if (!player.level().dimension().location().toString().equals(mainDim)) {
-            player.changeDimension(targetWorld, teleporter);
+            player.changeDimension(PortalDoorTeleporter.createTransition(targetWorld, land, player));
         } else {
-            applyLocalTeleport(player, teleporter, targetWorld);
+            applyLocalTeleport(player, targetWorld, land);
         }
-        setPortalCooldownTicks(player, player.getPortalWaitTime());
+        setPortalCooldownTicks(player, 60);
     }
 
     private void teleportFromMain(ServerPlayer player) {
@@ -302,23 +300,18 @@ public class TileEntityPortalDoor extends BlockEntity {
     }
 
     private static void finishTeleport(ServerPlayer player, ServerLevel targetWorld, String dimKey, BlockPos land) {
-        PortalDoorTeleporter teleporter = new PortalDoorTeleporter(targetWorld, land);
         if (!player.level().dimension().location().toString().equals(dimKey)) {
-            player.changeDimension(targetWorld, teleporter);
+            player.changeDimension(PortalDoorTeleporter.createTransition(targetWorld, land, player));
         } else {
-            applyLocalTeleport(player, teleporter, targetWorld);
+            applyLocalTeleport(player, targetWorld, land);
         }
-        setPortalCooldownTicks(player, Math.max(player.getPortalWaitTime(), 60));
+        setPortalCooldownTicks(player, 60);
     }
 
-    private static void applyLocalTeleport(ServerPlayer player, PortalDoorTeleporter teleporter, ServerLevel world) {
-        PortalInfo info = teleporter.getPortalInfo(player, world, w -> null);
-        if (info != null) {
-            player.teleportTo(info.pos.x, info.pos.y, info.pos.z);
-            player.setPos(info.pos.x, info.pos.y, info.pos.z);
-            player.setDeltaMovement(info.speed);
-            player.fallDistance = 0.0F;
-        }
+    private static void applyLocalTeleport(ServerPlayer player, ServerLevel world, BlockPos land) {
+        player.teleportTo(land.getX() + 0.5D, land.getY(), land.getZ() + 0.5D);
+        player.setDeltaMovement(Vec3.ZERO);
+        player.fallDistance = 0.0F;
     }
 
     private static void setPortalCooldownTicks(ServerPlayer player, int ticks) {
@@ -340,8 +333,8 @@ public class TileEntityPortalDoor extends BlockEntity {
     }
 
     @Override
-    protected void saveAdditional(CompoundTag compound) {
-        super.saveAdditional(compound);
+    protected void saveAdditional(CompoundTag compound, HolderLookup.Provider registries) {
+        super.saveAdditional(compound, registries);
         compound.putString("TargetDim", getTargetDimension());
         if (destination != null) {
             compound.put("Dest", destination.writeToNBT(new CompoundTag()));
@@ -354,8 +347,8 @@ public class TileEntityPortalDoor extends BlockEntity {
     }
 
     @Override
-    public void load(CompoundTag compound) {
-        super.load(compound);
+    protected void loadAdditional(CompoundTag compound, HolderLookup.Provider registries) {
+        super.loadAdditional(compound, registries);
         subGate = compound.getBoolean("SubGate");
         if (compound.contains("MainDim")) {
             if (compound.get("MainDim").getId() == CompoundTag.TAG_STRING) {
@@ -380,8 +373,8 @@ public class TileEntityPortalDoor extends BlockEntity {
     }
 
     @Override
-    public CompoundTag getUpdateTag() {
-        return saveWithoutMetadata();
+    public CompoundTag getUpdateTag(HolderLookup.Provider registries) {
+        return saveWithoutMetadata(registries);
     }
 
     @Nullable
@@ -391,15 +384,7 @@ public class TileEntityPortalDoor extends BlockEntity {
     }
 
     @Override
-    public void onDataPacket(Connection net, ClientboundBlockEntityDataPacket pkt) {
-        CompoundTag tag = pkt.getTag();
-        if (tag != null) {
-            load(tag);
-        }
-    }
-
-    @Override
-    public void handleUpdateTag(CompoundTag tag) {
-        load(tag);
+    public void handleUpdateTag(CompoundTag tag, HolderLookup.Provider registries) {
+        loadAdditional(tag, registries);
     }
 }

@@ -29,21 +29,25 @@ import net.minecraft.world.level.block.RenderShape;
 import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityTicker;
+import com.mojang.serialization.MapCodec;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.block.state.properties.EnumProperty;
+import net.minecraft.world.level.material.MapColor;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
 
-import javax.annotation.Nullable;
+import org.jetbrains.annotations.Nullable;
 import java.util.Locale;
 
 public class BlockPortalDoor extends BaseEntityBlock {
+
+    public static final MapCodec<BlockPortalDoor> CODEC = simpleCodec(BlockPortalDoor::new);
 
     public static final EnumProperty<Direction> FACING = BlockStateProperties.HORIZONTAL_FACING;
     public static final EnumProperty<Half> HALF = EnumProperty.create("half", Half.class);
@@ -54,17 +58,17 @@ public class BlockPortalDoor extends BaseEntityBlock {
     private static final VoxelShape NS_SHAPE = Block.box(0.0D, 0.0D, 7.0D, 16.0D, 16.0D, 9.0D);
     private static final VoxelShape EW_SHAPE = Block.box(7.0D, 0.0D, 0.0D, 9.0D, 16.0D, 16.0D);
 
-    public BlockPortalDoor() {
-        super(Properties.of()
-                .mapColor(net.minecraft.world.level.material.MapColor.COLOR_LIGHT_BLUE)
-                .strength(0.5F, 3.0F)
-                .sound(SoundType.GLASS)
-                .lightLevel(state -> 14)
-                .noOcclusion());
+    public BlockPortalDoor(Properties properties) {
+        super(properties);
         registerDefaultState(stateDefinition.any()
                 .setValue(FACING, Direction.NORTH)
                 .setValue(HALF, Half.LOWER)
                 .setValue(TYPE, DoorType.MAIN));
+    }
+
+    @Override
+    protected MapCodec<? extends BaseEntityBlock> codec() {
+        return CODEC;
     }
 
     public static boolean isSub(BlockState state) {
@@ -97,7 +101,7 @@ public class BlockPortalDoor extends BaseEntityBlock {
 
     @Override
     public void entityInside(BlockState state, Level level, BlockPos pos, Entity entity) {
-        if (entity.isPassenger() || entity.isVehicle() || !entity.canChangeDimensions()) {
+        if (entity.isPassenger() || entity.isVehicle() || !entity.canUsePortal(true)) {
             return;
         }
         VoxelShape shape = getShape(state, level, pos, CollisionContext.of(entity));
@@ -126,11 +130,8 @@ public class BlockPortalDoor extends BaseEntityBlock {
     }
 
     @Override
-    public InteractionResult use(BlockState state, Level level, BlockPos pos, Player player,
-                                 InteractionHand hand, BlockHitResult hit) {
-        if (hand != InteractionHand.MAIN_HAND || !player.getItemInHand(hand).isEmpty()) {
-            return InteractionResult.PASS;
-        }
+    protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player,
+                                               BlockHitResult hit) {
         if (isSub(state)) {
             return InteractionResult.SUCCESS;
         }
@@ -248,9 +249,9 @@ public class BlockPortalDoor extends BaseEntityBlock {
         }
     }
 
-    public void playerWillDestroy(Level level, BlockPos pos, BlockState state, Player player) {
+    public BlockState playerWillDestroy(Level level, BlockPos pos, BlockState state, Player player) {
         if (isSub(state) && !player.getAbilities().instabuild) {
-            return;
+            return state;
         }
         Half half = state.getValue(HALF);
         BlockPos other = half == Half.LOWER ? pos.above() : pos.below();
@@ -268,15 +269,13 @@ public class BlockPortalDoor extends BaseEntityBlock {
         if (!isSub(state) && !level.isClientSide && !player.getAbilities().instabuild && half == Half.UPPER) {
             popResource(level, pos, new ItemStack(this));
         }
-        super.playerWillDestroy(level, pos, state, player);
+        return super.playerWillDestroy(level, pos, state, player);
     }
 
-    @Override
-    public ItemStack getCloneItemStack(BlockGetter level, BlockPos pos, BlockState state) {
+    protected ItemStack getCloneItemStack(Level level, BlockPos pos, BlockState state) {
         return new ItemStack(this);
     }
 
-    @Override
     public void spawnAfterBreak(BlockState state, ServerLevel level, BlockPos pos, ItemStack stack, boolean dropExperience) {
         if (!isSub(state) && state.getValue(HALF) == Half.LOWER) {
             super.spawnAfterBreak(state, level, pos, stack, dropExperience);

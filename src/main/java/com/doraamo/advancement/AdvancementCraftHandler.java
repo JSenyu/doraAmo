@@ -2,16 +2,15 @@ package com.doraamo.advancement;
 
 import com.doraamo.DoraAmo;
 import com.doraamo.item.ModItems;
-import net.minecraft.advancements.Advancement;
-import net.minecraft.server.PlayerAdvancements;
+import net.minecraft.advancements.AdvancementHolder;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.Item;
-import net.minecraftforge.event.entity.player.PlayerEvent;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.fml.common.Mod;
+import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 
-@Mod.EventBusSubscriber(modid = DoraAmo.MODID)
+@EventBusSubscriber(modid = DoraAmo.MODID)
 public final class AdvancementCraftHandler {
 
     private AdvancementCraftHandler() {
@@ -34,12 +33,11 @@ public final class AdvancementCraftHandler {
         if (player.getServer() == null) {
             return;
         }
-        Advancement adv = player.getServer().getAdvancements()
-                .getAdvancement(new ResourceLocation(DoraAmo.MODID, path));
+        AdvancementHolder adv = player.getServer().getAdvancements()
+                .get(ResourceLocation.fromNamespaceAndPath(DoraAmo.MODID, path));
         if (adv == null) {
             return;
         }
-        PlayerAdvancements pa = player.getAdvancements();
-        pa.award(adv, criterion);
+        player.getAdvancements().award(adv, criterion);
     }
 }

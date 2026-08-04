@@ -4,13 +4,13 @@ import com.doraamo.DoraAmo;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.world.entity.player.Player;
-import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.event.TickEvent;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.fml.common.Mod;
-import net.minecraftforge.fml.util.ObfuscationReflectionHelper;
+import net.neoforged.api.distmarker.Dist;
+import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.fml.util.ObfuscationReflectionHelper;
+import net.neoforged.neoforge.event.tick.PlayerTickEvent;
 
-@Mod.EventBusSubscriber(modid = DoraAmo.MODID, value = Dist.CLIENT)
+@EventBusSubscriber(modid = DoraAmo.MODID, value = Dist.CLIENT)
 public class ClientPortalOverlay {
 
     private static boolean touchedThisTick;
@@ -34,15 +34,11 @@ public class ClientPortalOverlay {
     }
 
     @SubscribeEvent
-    public static void onClientTick(TickEvent.ClientTickEvent event) {
-        if (event.phase != TickEvent.Phase.END) {
+    public static void onClientTick(PlayerTickEvent.Post event) {
+        if (!(event.getEntity() instanceof LocalPlayer player)) {
             return;
         }
-
-        LocalPlayer player = Minecraft.getInstance().player;
-        if (player == null) {
-            touchedThisTick = false;
-            chargeTicks = 0;
+        if (player != Minecraft.getInstance().player) {
             return;
         }
 

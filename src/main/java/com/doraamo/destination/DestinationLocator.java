@@ -1,6 +1,7 @@
 package com.doraamo.destination;
 
 import com.doraamo.portal.ChunkPrep;
+import com.doraamo.util.BiomeUtil;
 import com.doraamo.util.DimUtil;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
@@ -14,11 +15,10 @@ import net.minecraft.world.level.biome.Biome;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.levelgen.structure.Structure;
-import net.minecraftforge.registries.ForgeRegistries;
 import net.minecraft.world.level.levelgen.Heightmap;
-
-import javax.annotation.Nullable;
+import net.minecraft.world.level.levelgen.structure.Structure;
+import net.minecraft.core.RegistryAccess;
+import org.jetbrains.annotations.Nullable;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -143,12 +143,12 @@ public final class DestinationLocator {
     private static BlockPos findBiomeStrict(ServerLevel world, BlockPos near, String biomeKey) {
         ResourceLocation key = ResourceLocation.tryParse(biomeKey.contains(":") ? biomeKey : "minecraft:" + biomeKey);
         if (key == null) {
-            key = new ResourceLocation("minecraft", "plains");
+            key = ResourceLocation.fromNamespaceAndPath("minecraft", "plains");
         }
         ResourceKey<Biome> biomeKeyObj = ResourceKey.create(Registries.BIOME, key);
         Optional<Holder.Reference<Biome>> targetHolder = world.registryAccess().registryOrThrow(Registries.BIOME).getHolder(biomeKeyObj);
         if (targetHolder.isEmpty()) {
-            targetHolder = world.registryAccess().registryOrThrow(Registries.BIOME).getHolder(ResourceKey.create(Registries.BIOME, new ResourceLocation("minecraft", "plains")));
+            targetHolder = world.registryAccess().registryOrThrow(Registries.BIOME).getHolder(ResourceKey.create(Registries.BIOME, ResourceLocation.fromNamespaceAndPath("minecraft", "plains")));
         }
         if (targetHolder.isEmpty()) {
             return null;
@@ -397,16 +397,10 @@ public final class DestinationLocator {
                 }
                 return null;
         }
-        return ResourceKey.create(Registries.STRUCTURE, new ResourceLocation("minecraft", id));
+        return ResourceKey.create(Registries.STRUCTURE, ResourceLocation.fromNamespaceAndPath("minecraft", id));
     }
 
-    public static List<Biome> allBiomes() {
-        List<Biome> list = new ArrayList<>();
-        for (Biome b : ForgeRegistries.BIOMES.getValues()) {
-            if (b != null) {
-                list.add(b);
-            }
-        }
-        return list;
+    public static List<Biome> allBiomes(RegistryAccess access) {
+        return BiomeUtil.allBiomes(access);
     }
 }

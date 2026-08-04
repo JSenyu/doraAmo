@@ -14,7 +14,7 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.material.Fluids;
 import net.minecraft.util.Mth;
 
-import javax.annotation.Nullable;
+import org.jetbrains.annotations.Nullable;
 
 public final class PortalDoorPlacer {
 

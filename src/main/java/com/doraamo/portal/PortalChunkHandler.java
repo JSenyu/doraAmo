@@ -2,11 +2,11 @@ package com.doraamo.portal;
 
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.Level;
-import net.minecraftforge.event.level.ChunkEvent;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.fml.common.Mod;
+import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.neoforge.event.level.ChunkEvent;
 
-@Mod.EventBusSubscriber(modid = "doraamo")
+@EventBusSubscriber(modid = "doraamo")
 public class PortalChunkHandler {
 
     @SubscribeEvent

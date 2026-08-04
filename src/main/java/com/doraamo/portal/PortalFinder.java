@@ -9,7 +9,7 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.level.ChunkPos;
 
-import javax.annotation.Nullable;
+import org.jetbrains.annotations.Nullable;
 
 public final class PortalFinder {
 

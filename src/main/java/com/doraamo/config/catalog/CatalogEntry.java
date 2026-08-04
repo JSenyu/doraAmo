@@ -2,7 +2,7 @@ package com.doraamo.config.catalog;
 
 import com.doraamo.util.DimUtil;
 
-import javax.annotation.Nullable;
+import org.jetbrains.annotations.Nullable;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
