@@ -4,7 +4,6 @@ import com.doraamo.config.DimensionConfig;
 import com.doraamo.config.catalog.DisplayCatalog;
 import com.doraamo.destination.DestinationLocator;
 import com.doraamo.destination.DestinationSettings;
-import com.doraamo.network.PacketHandler;
 import com.doraamo.network.SaveTunerPayload;
 import com.doraamo.network.ValidateTunerPayload;
 import com.doraamo.portal.PortalDoorPlacer;
@@ -459,7 +458,7 @@ public class GuiPortalTuner extends Screen {
             settings.z = foundZ;
         }
         settings.forceUnsafe = force;
-        PacketHandler.sendToServer(new SaveTunerPayload(hand, settings, portalPos, force));
+        ClientPacketHandler.sendToServer(new SaveTunerPayload(hand, settings, portalPos, force));
         minecraft.setScreen(null);
     }
 
@@ -490,7 +489,7 @@ public class GuiPortalTuner extends Screen {
         statusMessage = Component.translatable(LangKeys.GUI_STATUS_SEARCHING).getString();
         statusColor = 0xFFFF55;
         refreshWidgets();
-        PacketHandler.sendToServer(new ValidateTunerPayload(settings));
+        ClientPacketHandler.sendToServer(new ValidateTunerPayload(settings));
     }
 
     private void readCoordFields() {
