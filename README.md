@@ -10,6 +10,19 @@
 
 制作任意门需要龙首。做出任意门之后，再做出协调器，就能真正决定门通向哪里。
 
+## 版本与分支
+
+| 分支 | 平台 | 状态 |
+|------|------|------|
+| [1.12.2-forge](https://github.com/JSenyu/doraAmo/tree/1.12.2-forge) | Minecraft 1.12.2 · Forge | 可用 |
+| [1.16.5-forge](https://github.com/JSenyu/doraAmo/tree/1.16.5-forge) | Minecraft 1.16.5 · Forge | 移植中 |
+| [1.20.1-neoforge](https://github.com/JSenyu/doraAmo/tree/1.20.1-neoforge) | Minecraft 1.20.1 · NeoForge | 移植中 |
+| [1.20.1-fabric](https://github.com/JSenyu/doraAmo/tree/1.20.1-fabric) | Minecraft 1.20.1 · Fabric | 移植中 |
+| [1.21.1-neoforge](https://github.com/JSenyu/doraAmo/tree/1.21.1-neoforge) | Minecraft 1.21.1 · NeoForge | 移植中 |
+| [1.21.1-fabric](https://github.com/JSenyu/doraAmo/tree/1.21.1-fabric) | Minecraft 1.21.1 · Fabric | 移植中 |
+
+当前默认分支 `main` 与 `1.12.2-forge` 对齐。
+
 ## 许可
 
 [MIT](LICENSE)
