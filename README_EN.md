@@ -2,7 +2,8 @@
 
 [中文](README.md) | [English](README_EN.md)
 
-A portal mod for Minecraft 1.12.2 (Forge).
+> **Target: Minecraft 1.16.5 · Forge. Port in progress — this branch still contains the 1.12.2 Forge baseline and is not playable on 1.16.5 yet.**
+A portal mod targeting Minecraft 1.16.5 (Forge) — port in progress.
 
 Adds post–End City gameplay focused on late-game travel. The Anywhere Door lets you teleport to places you choose.
 
