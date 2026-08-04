@@ -15,10 +15,10 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.levelgen.structure.Structure;
-import net.minecraftforge.registries.ForgeRegistries;
+import com.doraamo.util.RegistryHelper;
 import net.minecraft.world.level.levelgen.Heightmap;
 
-import javax.annotation.Nullable;
+import org.jetbrains.annotations.Nullable;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -401,12 +401,6 @@ public final class DestinationLocator {
     }
 
     public static List<Biome> allBiomes() {
-        List<Biome> list = new ArrayList<>();
-        for (Biome b : ForgeRegistries.BIOMES.getValues()) {
-            if (b != null) {
-                list.add(b);
-            }
-        }
-        return list;
+        return RegistryHelper.allBiomes();
     }
 }

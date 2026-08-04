@@ -3,22 +3,21 @@ package com.doraamo;
 import com.doraamo.block.ModBlocks;
 import com.doraamo.config.DimensionConfig;
 import com.doraamo.config.catalog.DisplayCatalog;
+import com.doraamo.item.ModCreativeTabs;
 import com.doraamo.item.ModItems;
 import com.doraamo.network.PacketHandler;
-import net.minecraftforge.eventbus.api.IEventBus;
-import net.minecraftforge.fml.common.Mod;
-import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
-import net.minecraftforge.fml.event.lifecycle.FMLLoadCompleteEvent;
-import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
-import net.minecraftforge.fml.loading.FMLPaths;
+import com.doraamo.portal.PortalChunkHandler;
+import net.fabricmc.api.ModInitializer;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
+import net.fabricmc.loader.api.FabricLoader;
+import net.minecraft.server.MinecraftServer;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import java.io.File;
 import java.nio.file.Path;
 
-@Mod(DoraAmo.MODID)
-public class DoraAmo {
+public class DoraAmo implements ModInitializer {
 
     public static final String MODID = "doraamo";
     public static final String NAME = "DoraAmo";
@@ -32,28 +31,33 @@ public class DoraAmo {
 
     public static Logger logger;
 
-    public DoraAmo() {
-        logger = LogManager.getLogger();
-        IEventBus modBus = FMLJavaModLoadingContext.get().getModEventBus();
-        ModBlocks.register(modBus);
-        ModItems.register(modBus);
-        modBus.addListener(this::commonSetup);
-        modBus.addListener(this::loadComplete);
+    private static MinecraftServer server;
 
-        Path configRoot = FMLPaths.CONFIGDIR.get();
+    @Override
+    public void onInitialize() {
+        logger = LogManager.getLogger();
+        ModBlocks.register();
+        ModItems.register();
+        ModCreativeTabs.register();
+        PacketHandler.initServer();
+        PortalChunkHandler.register();
+
+        Path configRoot = FabricLoader.getInstance().getConfigDir();
         File modConfigDir = configRoot.resolve(MODID).toFile();
         if (!modConfigDir.exists()) {
             modConfigDir.mkdirs();
         }
         DimensionConfig.init(configRoot.resolve(MODID + ".cfg").toFile());
         DisplayCatalog.init(new File(modConfigDir, "catalog"));
+
+        ServerLifecycleEvents.SERVER_STARTED.register(s -> {
+            server = s;
+            DisplayCatalog.syncFromGame();
+        });
+        ServerLifecycleEvents.SERVER_STOPPED.register(s -> server = null);
     }
 
-    private void commonSetup(final FMLCommonSetupEvent event) {
-        event.enqueueWork(PacketHandler::init);
-    }
-
-    private void loadComplete(final FMLLoadCompleteEvent event) {
-        DisplayCatalog.syncFromGame();
+    public static MinecraftServer getServer() {
+        return server;
     }
 }

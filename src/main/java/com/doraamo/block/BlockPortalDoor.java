@@ -40,7 +40,7 @@ import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
 
-import javax.annotation.Nullable;
+import org.jetbrains.annotations.Nullable;
 import java.util.Locale;
 
 public class BlockPortalDoor extends BaseEntityBlock {
@@ -79,7 +79,6 @@ public class BlockPortalDoor extends BaseEntityBlock {
         return super.getDestroyProgress(state, player, level, pos);
     }
 
-    @Override
     public boolean canEntityDestroy(BlockState state, BlockGetter level, BlockPos pos, Entity entity) {
         return !isSub(state);
     }
@@ -176,7 +175,7 @@ public class BlockPortalDoor extends BaseEntityBlock {
     @Nullable
     @Override
     public BlockEntity newBlockEntity(BlockPos pos, BlockState state) {
-        return state.getValue(HALF) == Half.LOWER ? ModBlocks.PORTAL_DOOR_TILE.get().create(pos, state) : null;
+        return state.getValue(HALF) == Half.LOWER ? ModBlocks.PORTAL_DOOR_TILE.create(pos, state) : null;
     }
 
     @Nullable
@@ -185,7 +184,7 @@ public class BlockPortalDoor extends BaseEntityBlock {
         if (level.isClientSide || state.getValue(HALF) != Half.LOWER) {
             return null;
         }
-        return createTickerHelper(type, ModBlocks.PORTAL_DOOR_TILE.get(), TileEntityPortalDoor::serverTick);
+        return createTickerHelper(type, ModBlocks.PORTAL_DOOR_TILE, TileEntityPortalDoor::serverTick);
     }
 
     @Override
@@ -210,10 +209,9 @@ public class BlockPortalDoor extends BaseEntityBlock {
         super.onRemove(state, level, pos, newState, isMoving);
     }
 
-    @Override
     public void onBlockExploded(BlockState state, Level level, BlockPos pos, Explosion explosion) {
         if (!isSub(level.getBlockState(pos))) {
-            super.onBlockExploded(state, level, pos, explosion);
+            level.removeBlock(pos, false);
         }
     }
 

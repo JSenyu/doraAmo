@@ -16,7 +16,7 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.saveddata.SavedData;
-import net.minecraftforge.server.ServerLifecycleHooks;
+import com.doraamo.DoraAmo;
 
 import java.util.Collections;
 import java.util.HashMap;
@@ -47,7 +47,7 @@ public class PortalNetworkData extends SavedData {
     }
 
     public static PortalNetworkData get() {
-        MinecraftServer server = ServerLifecycleHooks.getCurrentServer();
+        MinecraftServer server = DoraAmo.getServer();
         return server == null ? null : get(server);
     }
 
@@ -63,7 +63,7 @@ public class PortalNetworkData extends SavedData {
                 replaced.add(existing);
             }
         }
-        MinecraftServer server = ServerLifecycleHooks.getCurrentServer();
+        MinecraftServer server = DoraAmo.getServer();
         for (String oldSk : replaced) {
             set.remove(oldSk);
             subToMain.remove(oldSk);
@@ -84,7 +84,7 @@ public class PortalNetworkData extends SavedData {
             world.getChunk(sub.pos);
         }
         BlockState state = world.getBlockState(sub.pos);
-        if (state.getBlock() != ModBlocks.PORTAL_DOOR.get()) {
+        if (state.getBlock() != ModBlocks.PORTAL_DOOR) {
             return false;
         }
         if (state.getValue(BlockPortalDoor.TYPE) != BlockPortalDoor.DoorType.SUB) {
@@ -187,13 +187,13 @@ public class PortalNetworkData extends SavedData {
         boolean wasSuppress = BlockPortalDoor.suppressSubRepair;
         BlockPortalDoor.suppressSubRepair = true;
         try {
-            if (state.getBlock() == ModBlocks.PORTAL_DOOR.get()) {
+            if (state.getBlock() == ModBlocks.PORTAL_DOOR) {
                 world.removeBlock(lower.above(), false);
                 world.removeBlock(lower, false);
                 world.removeBlockEntity(lower);
             } else {
                 BlockState up = world.getBlockState(lower.above());
-                if (up.getBlock() == ModBlocks.PORTAL_DOOR.get()) {
+                if (up.getBlock() == ModBlocks.PORTAL_DOOR) {
                     world.removeBlock(lower.above(), false);
                 }
             }

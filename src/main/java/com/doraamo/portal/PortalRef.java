@@ -3,7 +3,7 @@ package com.doraamo.portal;
 import com.doraamo.util.DimUtil;
 import net.minecraft.core.BlockPos;
 
-import javax.annotation.Nullable;
+import org.jetbrains.annotations.Nullable;
 import java.util.Locale;
 import java.util.Objects;
 

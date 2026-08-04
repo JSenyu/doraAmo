@@ -1,14 +1,12 @@
 package com.doraamo.destination;
 
 import com.doraamo.util.DimUtil;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraftforge.registries.ForgeRegistries;
+import com.doraamo.util.RegistryHelper;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.util.Mth;
 import net.minecraft.world.level.biome.Biome;
 
-import javax.annotation.Nullable;
+import org.jetbrains.annotations.Nullable;
 
 public class DestinationSettings {
 
@@ -96,9 +94,9 @@ public class DestinationSettings {
 
     private static String biomeKeyFromLegacyId(int id) {
         int index = 0;
-        for (Biome biome : ForgeRegistries.BIOMES.getValues()) {
+        for (Biome biome : RegistryHelper.allBiomes()) {
             if (index++ == id) {
-                ResourceLocation key = ForgeRegistries.BIOMES.getKey(biome);
+                ResourceLocation key = RegistryHelper.biomeKey(biome);
                 return key != null ? key.toString() : "minecraft:plains";
             }
         }

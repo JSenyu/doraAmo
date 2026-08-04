@@ -15,7 +15,6 @@ import com.doraamo.util.LangKeys;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.network.Connection;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
 import net.minecraft.server.MinecraftServer;
@@ -25,10 +24,8 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.portal.PortalInfo;
-import net.minecraftforge.fml.util.ObfuscationReflectionHelper;
 
-import javax.annotation.Nullable;
+import org.jetbrains.annotations.Nullable;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
@@ -45,7 +42,7 @@ public class TileEntityPortalDoor extends BlockEntity {
     private final Map<UUID, Boolean> touchedThisTick = new HashMap<>();
 
     public TileEntityPortalDoor(BlockPos pos, BlockState state) {
-        super(ModBlocks.PORTAL_DOOR_TILE.get(), pos, state);
+        super(ModBlocks.PORTAL_DOOR_TILE, pos, state);
     }
 
     public static void serverTick(Level level, BlockPos pos, BlockState state, TileEntityPortalDoor be) {
@@ -187,7 +184,7 @@ public class TileEntityPortalDoor extends BlockEntity {
 
         targetWorld.getChunk(mainPos);
         BlockState mainState = targetWorld.isLoaded(mainPos) ? targetWorld.getBlockState(mainPos) : null;
-        if (mainState != null && mainState.getBlock() == ModBlocks.PORTAL_DOOR.get()) {
+        if (mainState != null && mainState.getBlock() == ModBlocks.PORTAL_DOOR) {
             Direction facing = mainState.getValue(BlockPortalDoor.FACING);
             land = mainPos.relative(facing);
         } else {
@@ -198,13 +195,8 @@ public class TileEntityPortalDoor extends BlockEntity {
             }
         }
 
-        PortalDoorTeleporter teleporter = new PortalDoorTeleporter(targetWorld, land);
-        if (!player.level().dimension().location().toString().equals(mainDim)) {
-            player.changeDimension(targetWorld, teleporter);
-        } else {
-            applyLocalTeleport(player, teleporter, targetWorld);
-        }
-        setPortalCooldownTicks(player, player.getPortalWaitTime());
+        PortalDoorTeleporter.teleportPlayer(player, targetWorld, land);
+        player.setPortalCooldown(player.getPortalWaitTime());
     }
 
     private void teleportFromMain(ServerPlayer player) {
@@ -228,7 +220,7 @@ public class TileEntityPortalDoor extends BlockEntity {
 
         Direction facing = Direction.NORTH;
         BlockState self = level.getBlockState(worldPosition);
-        if (self.getBlock() == ModBlocks.PORTAL_DOOR.get()) {
+        if (self.getBlock() == ModBlocks.PORTAL_DOOR) {
             facing = self.getValue(BlockPortalDoor.FACING);
         }
 
@@ -302,27 +294,8 @@ public class TileEntityPortalDoor extends BlockEntity {
     }
 
     private static void finishTeleport(ServerPlayer player, ServerLevel targetWorld, String dimKey, BlockPos land) {
-        PortalDoorTeleporter teleporter = new PortalDoorTeleporter(targetWorld, land);
-        if (!player.level().dimension().location().toString().equals(dimKey)) {
-            player.changeDimension(targetWorld, teleporter);
-        } else {
-            applyLocalTeleport(player, teleporter, targetWorld);
-        }
-        setPortalCooldownTicks(player, Math.max(player.getPortalWaitTime(), 60));
-    }
-
-    private static void applyLocalTeleport(ServerPlayer player, PortalDoorTeleporter teleporter, ServerLevel world) {
-        PortalInfo info = teleporter.getPortalInfo(player, world, w -> null);
-        if (info != null) {
-            player.teleportTo(info.pos.x, info.pos.y, info.pos.z);
-            player.setPos(info.pos.x, info.pos.y, info.pos.z);
-            player.setDeltaMovement(info.speed);
-            player.fallDistance = 0.0F;
-        }
-    }
-
-    private static void setPortalCooldownTicks(ServerPlayer player, int ticks) {
-        ObfuscationReflectionHelper.setPrivateValue(ServerPlayer.class, player, ticks, "portalCooldown");
+        PortalDoorTeleporter.teleportPlayer(player, targetWorld, land);
+        player.setPortalCooldown(Math.max(player.getPortalWaitTime(), 60));
     }
 
     public void tick() {
@@ -388,18 +361,5 @@ public class TileEntityPortalDoor extends BlockEntity {
     @Override
     public ClientboundBlockEntityDataPacket getUpdatePacket() {
         return ClientboundBlockEntityDataPacket.create(this);
-    }
-
-    @Override
-    public void onDataPacket(Connection net, ClientboundBlockEntityDataPacket pkt) {
-        CompoundTag tag = pkt.getTag();
-        if (tag != null) {
-            load(tag);
-        }
-    }
-
-    @Override
-    public void handleUpdateTag(CompoundTag tag) {
-        load(tag);
     }
 }

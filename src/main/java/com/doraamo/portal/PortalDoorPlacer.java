@@ -14,7 +14,7 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.material.Fluids;
 import net.minecraft.util.Mth;
 
-import javax.annotation.Nullable;
+import org.jetbrains.annotations.Nullable;
 
 public final class PortalDoorPlacer {
 
@@ -52,11 +52,11 @@ public final class PortalDoorPlacer {
 
         ensureFoothold(world, base.below());
 
-        BlockState lower = ModBlocks.PORTAL_DOOR.get().defaultBlockState()
+        BlockState lower = ModBlocks.PORTAL_DOOR.defaultBlockState()
                 .setValue(BlockPortalDoor.FACING, facing)
                 .setValue(BlockPortalDoor.HALF, BlockPortalDoor.Half.LOWER)
                 .setValue(BlockPortalDoor.TYPE, type);
-        BlockState upper = ModBlocks.PORTAL_DOOR.get().defaultBlockState()
+        BlockState upper = ModBlocks.PORTAL_DOOR.defaultBlockState()
                 .setValue(BlockPortalDoor.FACING, facing)
                 .setValue(BlockPortalDoor.HALF, BlockPortalDoor.Half.UPPER)
                 .setValue(BlockPortalDoor.TYPE, type);
@@ -103,7 +103,7 @@ public final class PortalDoorPlacer {
 
     private static boolean blocksMovementSolid(Level world, BlockPos pos) {
         BlockState state = world.getBlockState(pos);
-        if (state.getBlock() == ModBlocks.PORTAL_DOOR.get()) {
+        if (state.getBlock() == ModBlocks.PORTAL_DOOR) {
             return false;
         }
         return state.blocksMotion() && !state.getBlock().isPossibleToRespawnInThis(state);
@@ -184,7 +184,7 @@ public final class PortalDoorPlacer {
         BlockState g = world.getBlockState(ground);
         boolean need = !g.isFaceSturdy(world, ground, Direction.UP) || !g.getFluidState().isEmpty();
         if (need) {
-            world.setBlock(ground, ModBlocks.OBSIDIAN_TURF.get().defaultBlockState(), 3);
+            world.setBlock(ground, ModBlocks.OBSIDIAN_TURF.defaultBlockState(), 3);
         }
     }
 
@@ -201,7 +201,7 @@ public final class PortalDoorPlacer {
             return PlaceHazard.FLOODED;
         }
         BlockState groundState = world.getBlockState(ground);
-        if (groundState.isFlammable(world, ground, Direction.UP) || groundState.is(Blocks.CACTUS)) {
+        if (groundState.is(Blocks.CACTUS) || groundState.is(Blocks.FIRE) || groundState.is(Blocks.SOUL_FIRE)) {
             return PlaceHazard.FIRE;
         }
         if (!isFreeForPortal(world, pos) || !isFreeForPortal(world, head)) {

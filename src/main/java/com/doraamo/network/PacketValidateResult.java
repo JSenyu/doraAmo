@@ -5,12 +5,6 @@ import com.doraamo.portal.PortalDoorPlacer;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.FriendlyByteBuf;
-import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.api.distmarker.OnlyIn;
-import net.minecraftforge.fml.DistExecutor;
-import net.minecraftforge.network.NetworkEvent;
-
-import java.util.function.Supplier;
 
 public class PacketValidateResult {
 
@@ -53,13 +47,7 @@ public class PacketValidateResult {
         return msg;
     }
 
-    public static void handle(PacketValidateResult msg, Supplier<NetworkEvent.Context> ctx) {
-        ctx.get().enqueueWork(() -> DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> () -> handleClient(msg)));
-        ctx.get().setPacketHandled(true);
-    }
-
-    @OnlyIn(Dist.CLIENT)
-    private static void handleClient(PacketValidateResult message) {
+    public static void handleClient(PacketValidateResult message) {
         Screen screen = Minecraft.getInstance().screen;
         if (screen instanceof GuiPortalTuner tuner) {
             PortalDoorPlacer.PlaceHazard[] values = PortalDoorPlacer.PlaceHazard.values();

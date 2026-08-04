@@ -4,16 +4,18 @@ import com.doraamo.portal.PortalDoorPlacer;
 import com.doraamo.util.DimUtil;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.Mth;
-import net.minecraft.world.entity.Entity;
-import net.minecraft.world.level.portal.PortalInfo;
+import net.minecraft.world.entity.RelativeMovement;
 import net.minecraft.world.phys.Vec3;
-import net.minecraftforge.common.util.ITeleporter;
 
-import javax.annotation.Nullable;
-import java.util.function.Function;
+import org.jetbrains.annotations.Nullable;
+import java.util.EnumSet;
 
-public class PortalDoorTeleporter implements ITeleporter {
+public final class PortalDoorTeleporter {
+
+    private PortalDoorTeleporter() {
+    }
 
     public static BlockPos scalePortalPos(ServerLevel from, ServerLevel to, BlockPos portalPos) {
         if (DimUtil.isEnd(DimUtil.levelKey(to))) {
@@ -35,39 +37,16 @@ public class PortalDoorTeleporter implements ITeleporter {
         return PortalDoorPlacer.findSafeDoorPos(world, scaledPortalPos, PortalDoorPlacer.SAFE_SEARCH_RADIUS);
     }
 
-    @Nullable
-    private final BlockPos absoluteLanding;
-
-    public PortalDoorTeleporter(ServerLevel world) {
-        this.absoluteLanding = null;
-    }
-
-    public PortalDoorTeleporter(ServerLevel world, BlockPos absoluteLanding) {
-        this.absoluteLanding = absoluteLanding;
-    }
-
-    @Override
-    public PortalInfo getPortalInfo(Entity entity, ServerLevel destWorld,
-                                    Function<ServerLevel, PortalInfo> defaultPortalInfo) {
-        BlockPos land = absoluteLanding;
-        if (land == null) {
-            int x = Mth.floor(entity.getX());
-            int z = Mth.floor(entity.getZ());
-            int y = Mth.floor(entity.getY());
-            land = PortalDoorPlacer.findSafeDoorPos(destWorld, new BlockPos(x, y, z), PortalDoorPlacer.SAFE_SEARCH_RADIUS);
-            if (land == null) {
-                land = new BlockPos(x, Mth.clamp(y, 1, destWorld.getMaxBuildHeight() - 3), z);
-            }
+    public static void teleportPlayer(ServerPlayer player, ServerLevel targetWorld, BlockPos land) {
+        double x = land.getX() + 0.5D;
+        double y = land.getY();
+        double z = land.getZ() + 0.5D;
+        if (player.level() != targetWorld) {
+            player.teleportTo(targetWorld, x, y, z, EnumSet.noneOf(RelativeMovement.class), player.getYRot(), player.getXRot());
+        } else {
+            player.teleportTo(x, y, z);
+            player.setDeltaMovement(Vec3.ZERO);
+            player.fallDistance = 0.0F;
         }
-        return new PortalInfo(
-                new Vec3(land.getX() + 0.5D, land.getY(), land.getZ() + 0.5D),
-                Vec3.ZERO,
-                entity.getYRot(),
-                entity.getXRot());
-    }
-
-    @Override
-    public boolean isVanilla() {
-        return false;
     }
 }

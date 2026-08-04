@@ -3,14 +3,13 @@ package com.doraamo.config.catalog;
 import com.doraamo.DoraAmo;
 import com.doraamo.destination.DestinationLocator;
 import com.doraamo.util.DimUtil;
+import com.doraamo.util.RegistryHelper;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.level.biome.Biome;
-import net.minecraftforge.server.ServerLifecycleHooks;
-import net.minecraftforge.registries.ForgeRegistries;
+import org.jetbrains.annotations.Nullable;
 
-import javax.annotation.Nullable;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
@@ -126,7 +125,7 @@ public final class DisplayCatalog {
         if (biome == null) {
             return "?";
         }
-        ResourceLocation key = ForgeRegistries.BIOMES.getKey(biome);
+        ResourceLocation key = RegistryHelper.biomeKey(biome);
         String id = key != null ? key.toString() : "minecraft:plains";
         CatalogEntry e = get(Kind.BIOME, id);
         String named = e == null ? null : e.pickName(preferChinese);
@@ -201,8 +200,8 @@ public final class DisplayCatalog {
             keys.add(DimUtil.OVERWORLD);
             keys.add(DimUtil.NETHER);
             keys.add(DimUtil.END);
-            if (ServerLifecycleHooks.getCurrentServer() != null) {
-                keys.addAll(DimUtil.allLevelKeys(ServerLifecycleHooks.getCurrentServer()));
+            if (DoraAmo.getServer() != null) {
+                keys.addAll(DimUtil.allLevelKeys(DoraAmo.getServer()));
             }
             for (String key : keys) {
                 String norm = DimUtil.normalize(key);
@@ -221,7 +220,7 @@ public final class DisplayCatalog {
 
     private static boolean syncBiomes() {
         boolean changed = false;
-        List<ResourceLocation> keys = new ArrayList<>(ForgeRegistries.BIOMES.getKeys());
+        List<ResourceLocation> keys = new ArrayList<>(RegistryHelper.biomeKeys());
         Collections.sort(keys, new java.util.Comparator<ResourceLocation>() {
             @Override
             public int compare(ResourceLocation a, ResourceLocation b) {

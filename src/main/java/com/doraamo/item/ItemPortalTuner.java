@@ -20,8 +20,6 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.context.UseOnContext;
 import net.minecraft.world.level.Level;
-import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.fml.DistExecutor;
 
 public class ItemPortalTuner extends Item {
 
@@ -51,7 +49,7 @@ public class ItemPortalTuner extends Item {
     public InteractionResult useOn(UseOnContext context) {
         Level world = context.getLevel();
         BlockPos pos = context.getClickedPos();
-        if (world.getBlockState(pos).getBlock() != ModBlocks.PORTAL_DOOR.get()) {
+        if (world.getBlockState(pos).getBlock() != ModBlocks.PORTAL_DOOR) {
             return InteractionResult.PASS;
         }
         ItemStack stack = context.getItemInHand();
@@ -81,15 +79,9 @@ public class ItemPortalTuner extends Item {
                 draft.z = (int) Math.floor(player.getZ());
                 draft.dimension = player.level().dimension().location().toString();
             }
-            openGui(hand, stack, base, draft, bound != null);
+            Minecraft.getInstance().setScreen(new GuiPortalTuner(hand, draft, base, bound != null));
         }
         return InteractionResult.SUCCESS;
-    }
-
-    private static void openGui(InteractionHand hand, ItemStack stack, BlockPos portalPos,
-                                DestinationSettings draft, boolean hasExistingBinding) {
-        DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> () ->
-                Minecraft.getInstance().setScreen(new GuiPortalTuner(hand, draft, portalPos, hasExistingBinding)));
     }
 
     @Override

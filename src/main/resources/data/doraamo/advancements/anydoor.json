@@ -17,7 +17,16 @@
   "parent": "doraamo:magic_power",
   "criteria": {
     "crafted": {
-      "trigger": "minecraft:impossible"
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": [
+              "doraamo:portal_door"
+            ]
+          }
+        ]
+      }
     }
   },
   "requirements": [

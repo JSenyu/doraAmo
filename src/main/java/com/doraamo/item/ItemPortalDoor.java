@@ -52,11 +52,11 @@ public class ItemPortalDoor extends Item {
         }
 
         Direction doorFacing = context.getHorizontalDirection();
-        BlockState lower = ModBlocks.PORTAL_DOOR.get().defaultBlockState()
+        BlockState lower = ModBlocks.PORTAL_DOOR.defaultBlockState()
                 .setValue(BlockPortalDoor.FACING, doorFacing)
                 .setValue(BlockPortalDoor.HALF, BlockPortalDoor.Half.LOWER)
                 .setValue(BlockPortalDoor.TYPE, BlockPortalDoor.DoorType.MAIN);
-        BlockState upper = ModBlocks.PORTAL_DOOR.get().defaultBlockState()
+        BlockState upper = ModBlocks.PORTAL_DOOR.defaultBlockState()
                 .setValue(BlockPortalDoor.FACING, doorFacing)
                 .setValue(BlockPortalDoor.HALF, BlockPortalDoor.Half.UPPER)
                 .setValue(BlockPortalDoor.TYPE, BlockPortalDoor.DoorType.MAIN);
@@ -68,7 +68,7 @@ public class ItemPortalDoor extends Item {
             level.updateNeighborsAt(pos.above(), this.block);
         }
 
-        SoundType sound = lower.getSoundType(level, pos, player);
+        SoundType sound = lower.getSoundType();
         level.playSound(player, pos, sound.getPlaceSound(), SoundSource.BLOCKS,
                 (sound.getVolume() + 1.0F) / 2.0F, sound.getPitch() * 0.8F);
 

@@ -14,9 +14,6 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.item.ItemStack;
-import net.minecraftforge.network.NetworkEvent;
-
-import java.util.function.Supplier;
 
 public class PacketSaveTuner {
 
@@ -64,36 +61,29 @@ public class PacketSaveTuner {
         return msg;
     }
 
-    public static void handle(PacketSaveTuner msg, Supplier<NetworkEvent.Context> ctx) {
-        ctx.get().enqueueWork(() -> {
-            ServerPlayer player = ctx.get().getSender();
-            if (player == null) {
-                return;
-            }
-            ItemStack stack = player.getItemInHand(msg.hand);
-            if (stack.getItem() != ModItems.PORTAL_TUNER.get()) {
-                return;
-            }
-            msg.settings.forceUnsafe = msg.force;
-            ItemPortalTuner.setSettings(stack, msg.settings);
+    public static void handle(PacketSaveTuner msg, ServerPlayer player) {
+        ItemStack stack = player.getItemInHand(msg.hand);
+        if (stack.getItem() != ModItems.PORTAL_TUNER) {
+            return;
+        }
+        msg.settings.forceUnsafe = msg.force;
+        ItemPortalTuner.setSettings(stack, msg.settings);
 
-            if (player.level().getBlockState(msg.portalPos).getBlock() != ModBlocks.PORTAL_DOOR.get()) {
-                return;
-            }
-            TileEntityPortalDoor te = BlockPortalDoor.getTile(player.level(), msg.portalPos,
-                    player.level().getBlockState(msg.portalPos));
-            if (te == null || te.isSubGate()) {
-                player.displayClientMessage(Component.translatable(LangKeys.TUNER_SUB_LOCKED), true);
-                return;
-            }
-            boolean hadBinding = te.getDestination() != null;
-            te.setDestination(msg.settings);
-            if (hadBinding) {
-                player.displayClientMessage(Component.translatable(LangKeys.TUNER_OVERWRITE), true);
-            } else {
-                player.displayClientMessage(Component.translatable(LangKeys.TUNER_APPLIED), true);
-            }
-        });
-        ctx.get().setPacketHandled(true);
+        if (player.level().getBlockState(msg.portalPos).getBlock() != ModBlocks.PORTAL_DOOR) {
+            return;
+        }
+        TileEntityPortalDoor te = BlockPortalDoor.getTile(player.level(), msg.portalPos,
+                player.level().getBlockState(msg.portalPos));
+        if (te == null || te.isSubGate()) {
+            player.displayClientMessage(Component.translatable(LangKeys.TUNER_SUB_LOCKED), true);
+            return;
+        }
+        boolean hadBinding = te.getDestination() != null;
+        te.setDestination(msg.settings);
+        if (hadBinding) {
+            player.displayClientMessage(Component.translatable(LangKeys.TUNER_OVERWRITE), true);
+        } else {
+            player.displayClientMessage(Component.translatable(LangKeys.TUNER_APPLIED), true);
+        }
     }
 }

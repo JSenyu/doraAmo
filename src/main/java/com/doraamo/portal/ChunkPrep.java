@@ -51,7 +51,7 @@ public final class ChunkPrep {
         int ex = sx + dir.getStepX() * 3;
         int ez = sz + dir.getStepZ() * 3;
         BlockPos turf = new BlockPos(ex, sy - 1, ez);
-        world.setBlock(turf, ModBlocks.OBSIDIAN_TURF.get().defaultBlockState(), 3);
+        world.setBlock(turf, ModBlocks.OBSIDIAN_TURF.defaultBlockState(), 3);
         BlockPos door = turf.above();
         world.removeBlock(door, false);
         world.removeBlock(door.above(), false);
