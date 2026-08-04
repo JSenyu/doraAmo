@@ -2,13 +2,11 @@ package com.doraamo.item;
 
 import com.doraamo.block.BlockPortalDoor;
 import com.doraamo.block.ModBlocks;
-import com.doraamo.client.GuiPortalTuner;
+import com.doraamo.client.ClientHooks;
 import com.doraamo.destination.DestinationSettings;
 import com.doraamo.portal.PortalFinder;
 import com.doraamo.tileentity.TileEntityPortalDoor;
-import com.doraamo.util.DimUtil;
 import com.doraamo.util.LangKeys;
-import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.nbt.CompoundTag;
@@ -81,7 +79,7 @@ public class ItemPortalTuner extends Item {
             }
             return InteractionResult.FAIL;
         }
-        if (world.isClientSide) {
+        if (world.isClientSide && FMLEnvironment.dist.isClient()) {
             BlockPos base = te.getBlockPos();
             DestinationSettings bound = te.getDestination();
             DestinationSettings draft = bound != null ? bound.copy() : getSettings(stack).copy();
@@ -92,14 +90,9 @@ public class ItemPortalTuner extends Item {
                 draft.z = (int) Math.floor(player.getZ());
                 draft.dimension = player.level().dimension().location().toString();
             }
-            openGui(hand, stack, base, draft, bound != null);
+            ClientHooks.openTunerGui(hand, draft, base, bound != null);
         }
         return InteractionResult.SUCCESS;
-    }
-
-    private static void openGui(InteractionHand hand, ItemStack stack, BlockPos portalPos,
-                                DestinationSettings draft, boolean hasExistingBinding) {
-        Minecraft.getInstance().setScreen(new GuiPortalTuner(hand, draft, portalPos, hasExistingBinding));
     }
 
     @Override

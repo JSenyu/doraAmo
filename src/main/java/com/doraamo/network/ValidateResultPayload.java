@@ -1,9 +1,7 @@
 package com.doraamo.network;
 
-import com.doraamo.client.GuiPortalTuner;
+import com.doraamo.client.ClientHooks;
 import com.doraamo.portal.PortalDoorPlacer;
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
@@ -49,20 +47,9 @@ public record ValidateResultPayload(
     public static void handle(ValidateResultPayload msg, IPayloadContext ctx) {
         ctx.enqueueWork(() -> {
             if (FMLEnvironment.dist.isClient()) {
-                handleClient(msg);
+                ClientHooks.handleValidateResult(msg.found, msg.x, msg.y, msg.z, msg.hazardOrdinal);
             }
         });
-    }
-
-    private static void handleClient(ValidateResultPayload message) {
-        Screen screen = Minecraft.getInstance().screen;
-        if (screen instanceof GuiPortalTuner tuner) {
-            PortalDoorPlacer.PlaceHazard[] values = PortalDoorPlacer.PlaceHazard.values();
-            PortalDoorPlacer.PlaceHazard hazard = message.hazardOrdinal < values.length
-                    ? values[message.hazardOrdinal]
-                    : PortalDoorPlacer.PlaceHazard.WALL;
-            tuner.onValidateResult(message.found, message.x, message.y, message.z, hazard);
-        }
     }
 
     @Override
