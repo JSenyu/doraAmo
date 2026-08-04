@@ -69,7 +69,7 @@ public final class DimUtil {
     public static ResourceKey<Level> worldKey(String dim) {
         ResourceLocation loc = ResourceLocation.tryParse(normalize(dim));
         if (loc == null) {
-            loc = new ResourceLocation(normalize(dim));
+            loc = ResourceLocation.parse(normalize(dim));
         }
         return ResourceKey.create(Registries.DIMENSION, loc);
     }

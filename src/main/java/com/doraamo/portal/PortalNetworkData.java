@@ -15,10 +15,10 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.util.datafix.DataFixTypes;
 import net.minecraft.world.level.saveddata.SavedData;
 import com.doraamo.DoraAmo;
 
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -35,7 +35,7 @@ public class PortalNetworkData extends SavedData {
     public PortalNetworkData() {
     }
 
-    public static PortalNetworkData load(CompoundTag nbt) {
+    public static PortalNetworkData load(CompoundTag nbt, net.minecraft.core.HolderLookup.Provider provider) {
         PortalNetworkData data = new PortalNetworkData();
         data.readFromNbt(nbt);
         return data;
@@ -43,7 +43,9 @@ public class PortalNetworkData extends SavedData {
 
     public static PortalNetworkData get(MinecraftServer server) {
         ServerLevel overworld = server.overworld();
-        return overworld.getDataStorage().computeIfAbsent(PortalNetworkData::load, PortalNetworkData::new, DATA_NAME);
+        return overworld.getDataStorage().computeIfAbsent(
+                new SavedData.Factory<>(PortalNetworkData::new, PortalNetworkData::load, DataFixTypes.SAVED_DATA_MAP_DATA),
+                DATA_NAME);
     }
 
     public static PortalNetworkData get() {
@@ -230,7 +232,7 @@ public class PortalNetworkData extends SavedData {
     }
 
     @Override
-    public CompoundTag save(CompoundTag compound) {
+    public CompoundTag save(CompoundTag compound, net.minecraft.core.HolderLookup.Provider registries) {
         ListTag mains = new ListTag();
         for (Map.Entry<String, Set<String>> e : mainToSubs.entrySet()) {
             CompoundTag tag = new CompoundTag();

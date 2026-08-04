@@ -2,7 +2,7 @@
 
 [中文](README.md) | [English](README_EN.md)
 
-A portal mod for Minecraft 1.20.1 (Fabric Loader + Fabric API).
+A portal mod for Minecraft 1.21.1 (Fabric Loader + Fabric API).
 
 Adds post–End City gameplay focused on late-game travel. The Anywhere Door lets you teleport to places you choose.
 
@@ -19,7 +19,7 @@ Crafting the door requires a dragon head. Craft the Coordinator afterward to dec
 | [1.20.1-neoforge](https://github.com/JSenyu/doraAmo/tree/1.20.1-neoforge) | Minecraft 1.20.1 · Forge (NeoForged MDG) | Available |
 | [1.20.1-fabric](https://github.com/JSenyu/doraAmo/tree/1.20.1-fabric) | Minecraft 1.20.1 · Fabric | Available |
 | [1.21.1-neoforge](https://github.com/JSenyu/doraAmo/tree/1.21.1-neoforge) | Minecraft 1.21.1 · NeoForge | Port in progress |
-| [1.21.1-fabric](https://github.com/JSenyu/doraAmo/tree/1.21.1-fabric) | Minecraft 1.21.1 · Fabric | Port in progress |
+| [1.21.1-fabric](https://github.com/JSenyu/doraAmo/tree/1.21.1-fabric) | Minecraft 1.21.1 · Fabric | Available |
 
 The default branch `main` currently matches `1.12.2-forge`.
 

@@ -23,7 +23,7 @@ public final class ModItems {
     }
 
     private static Item registerItem(String name, Item item) {
-        return Registry.register(BuiltInRegistries.ITEM, new ResourceLocation(DoraAmo.MODID, name), item);
+        return Registry.register(BuiltInRegistries.ITEM, ResourceLocation.fromNamespaceAndPath(DoraAmo.MODID, name), item);
     }
 
     public static void register() {

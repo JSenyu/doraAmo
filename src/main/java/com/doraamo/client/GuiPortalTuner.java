@@ -5,8 +5,8 @@ import com.doraamo.config.catalog.DisplayCatalog;
 import com.doraamo.destination.DestinationLocator;
 import com.doraamo.destination.DestinationSettings;
 import com.doraamo.network.PacketHandler;
-import com.doraamo.network.PacketSaveTuner;
-import com.doraamo.network.PacketValidateTuner;
+import com.doraamo.network.SaveTunerPayload;
+import com.doraamo.network.ValidateTunerPayload;
 import com.doraamo.portal.PortalDoorPlacer;
 import com.doraamo.util.DimUtil;
 import com.doraamo.util.LangKeys;
@@ -369,10 +369,6 @@ public class GuiPortalTuner extends Screen {
 
     @Override
     public void tick() {
-        filterField.tick();
-        fieldX.tick();
-        fieldY.tick();
-        fieldZ.tick();
         if (filterField.visible) {
             String t = filterField.getValue();
             if (!t.equals(lastFilterText)) {
@@ -383,7 +379,8 @@ public class GuiPortalTuner extends Screen {
     }
 
     @Override
-    public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
+    public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
+        double delta = scrollY;
         int dir = delta > 0 ? -1 : 1;
         if (mouseX >= dimLeft && mouseX < dimLeft + dimW && mouseY >= dimTop && mouseY < dimTop + dimH) {
             dimScroll = clampScroll(dimScroll + dir, dimEntries.size(), dimRows);
@@ -396,7 +393,7 @@ public class GuiPortalTuner extends Screen {
             focus = FocusPanel.CONTENT;
             return true;
         }
-        return super.mouseScrolled(mouseX, mouseY, delta);
+        return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
     }
 
     private static int clampScroll(int scroll, int size, int rows) {
@@ -462,7 +459,7 @@ public class GuiPortalTuner extends Screen {
             settings.z = foundZ;
         }
         settings.forceUnsafe = force;
-        PacketHandler.sendToServer(new PacketSaveTuner(hand, settings, portalPos, force));
+        PacketHandler.sendToServer(new SaveTunerPayload(hand, settings, portalPos, force));
         minecraft.setScreen(null);
     }
 
@@ -493,7 +490,7 @@ public class GuiPortalTuner extends Screen {
         statusMessage = Component.translatable(LangKeys.GUI_STATUS_SEARCHING).getString();
         statusColor = 0xFFFF55;
         refreshWidgets();
-        PacketHandler.sendToServer(new PacketValidateTuner(settings));
+        PacketHandler.sendToServer(new ValidateTunerPayload(settings));
     }
 
     private void readCoordFields() {
@@ -588,7 +585,7 @@ public class GuiPortalTuner extends Screen {
 
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTicks) {
-        renderBackground(graphics);
+        renderBackground(graphics, mouseX, mouseY, partialTicks);
         graphics.drawCenteredString(font, title, width / 2, 6, 0xFFFFFF);
         String boundLine = hasExistingBinding
                 ? Component.translatable(LangKeys.GUI_BOUND_CURRENT, formatBinding(originalBinding)).getString()

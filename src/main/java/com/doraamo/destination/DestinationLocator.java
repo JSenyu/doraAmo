@@ -143,12 +143,12 @@ public final class DestinationLocator {
     private static BlockPos findBiomeStrict(ServerLevel world, BlockPos near, String biomeKey) {
         ResourceLocation key = ResourceLocation.tryParse(biomeKey.contains(":") ? biomeKey : "minecraft:" + biomeKey);
         if (key == null) {
-            key = new ResourceLocation("minecraft", "plains");
+            key = ResourceLocation.fromNamespaceAndPath("minecraft", "plains");
         }
         ResourceKey<Biome> biomeKeyObj = ResourceKey.create(Registries.BIOME, key);
         Optional<Holder.Reference<Biome>> targetHolder = world.registryAccess().registryOrThrow(Registries.BIOME).getHolder(biomeKeyObj);
         if (targetHolder.isEmpty()) {
-            targetHolder = world.registryAccess().registryOrThrow(Registries.BIOME).getHolder(ResourceKey.create(Registries.BIOME, new ResourceLocation("minecraft", "plains")));
+            targetHolder = world.registryAccess().registryOrThrow(Registries.BIOME).getHolder(ResourceKey.create(Registries.BIOME, ResourceLocation.fromNamespaceAndPath("minecraft", "plains")));
         }
         if (targetHolder.isEmpty()) {
             return null;
@@ -397,7 +397,7 @@ public final class DestinationLocator {
                 }
                 return null;
         }
-        return ResourceKey.create(Registries.STRUCTURE, new ResourceLocation("minecraft", id));
+        return ResourceKey.create(Registries.STRUCTURE, ResourceLocation.fromNamespaceAndPath("minecraft", id));
     }
 
     public static List<Biome> allBiomes() {

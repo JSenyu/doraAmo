@@ -21,9 +21,7 @@
       "conditions": {
         "items": [
           {
-            "items": [
-              "doraamo:portal_tuner"
-            ]
+            "items": "doraamo:portal_tuner"
           }
         ]
       }
